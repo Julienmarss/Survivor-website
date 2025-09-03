@@ -13,62 +13,110 @@
     e.stopPropagation();
     dispatch('viewDetails', project);
   }
+
+  // Accessibilité : activer via clavier (Enter/Space)
+  function onKeyDown(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleCardClick();
+    }
+    // Empêche la page de scroller quand on appuie sur espace
+    if (e.key === ' ' || e.code === 'Space') {
+      e.preventDefault();
+    }
+  }
+  function onKeyUp(e) {
+    if (e.key === ' ' || e.code === 'Space') {
+      e.preventDefault();
+      handleCardClick();
+    }
+  }
+
+  const hasFounders = Array.isArray(project?.founders) && project.founders.length > 0;
+  const hasTags = Array.isArray(project?.tags) && project.tags.length > 0;
+  const hasFunding = project?.funding && project.funding !== 'Non spécifié';
+  const iconClass = project?.icon || 'fas fa-rocket';
 </script>
 
-<div 
-  class="project-card" 
-  on:click={handleCardClick}
-  on:keydown={(e) => e.key === 'Enter' && handleCardClick()}
+<article
+  class="project-card"
   role="button"
   tabindex="0"
+  aria-label={`Ouvrir la fiche ${project?.title || 'projet'}`}
+  on:click={handleCardClick}
+  on:keydown={onKeyDown}
+  on:keyup={onKeyUp}
 >
   <div class="project-image" style="background: {project.gradient}">
-    <i class={project.icon}></i>
-    <div class="project-badge">{project.badge}</div>
-    <div class="project-status">{project.status}</div>
+    <i class={iconClass} aria-hidden="true"></i>
+
+    {#if project?.badge}
+      <div class="project-badge" aria-label="Secteur">{project.badge}</div>
+    {/if}
+
+    {#if project?.status}
+      <div class="project-status" aria-label="Statut">{project.status}</div>
+    {/if}
+
+    {#if hasFunding}
+      <div class="project-funding-badge" aria-label="Levées totales">
+        <i class="fas fa-coins" aria-hidden="true"></i>
+        <span>{project.funding}</span>
+      </div>
+    {/if}
   </div>
-  
+
   <div class="project-content">
     <div class="project-header">
       <h3 class="project-title">{project.title}</h3>
-      <div class="project-year">{project.year}</div>
+      {#if project?.year}
+        <div class="project-year" aria-label="Année">{project.year}</div>
+      {/if}
     </div>
-    
+
     <p class="project-description">{project.description}</p>
-    
-    <div class="project-founders">
-      <i class="fas fa-user-tie"></i>
-      <span>{project.founders.join(', ')}</span>
-    </div>
-    
-    <div class="project-tags">
-      {#each project.tags as tag}
-        <span class="project-tag">{tag}</span>
-      {/each}
-    </div>
-    
-    <div class="project-footer">
-      <div class="project-funding">
-        <i class="fas fa-coins"></i>
-        <span>{project.funding}</span>
+
+    {#if hasFounders}
+      <div class="project-founders">
+        <i class="fas fa-user-tie" aria-hidden="true"></i>
+        <span>{project.founders.join(', ')}</span>
       </div>
-      <button 
+    {/if}
+
+    {#if hasTags}
+      <div class="project-tags" aria-label="Mots-clés">
+        {#each project.tags as tag}
+          <span class="project-tag">{tag}</span>
+        {/each}
+      </div>
+    {/if}
+
+    <div class="project-footer">
+      <div class="project-funding" aria-label="Levées affichées dans la carte">
+        <i class="fas fa-coins" aria-hidden="true"></i>
+        <span>{hasFunding ? project.funding : '—'}</span>
+      </div>
+      <button
         class="project-link"
+        type="button"
         on:click={handleProjectLink}
+        aria-label={`Voir les détails de ${project.title}`}
+        title="Voir les détails"
       >
         En savoir plus
-        <i class="fas fa-arrow-right"></i>
+        <i class="fas fa-arrow-right" aria-hidden="true"></i>
       </button>
     </div>
   </div>
-  
-  <div class="project-overlay">
+
+  <!-- Overlay purement visuel : on le masque aux lecteurs d’écran -->
+  <div class="project-overlay" aria-hidden="true">
     <div class="overlay-content">
-      <i class="fas fa-eye"></i>
+      <i class="fas fa-eye" aria-hidden="true"></i>
       <span>Voir les détails</span>
     </div>
   </div>
-</div>
+</article>
 
 <style>
   .project-card {
@@ -84,16 +132,14 @@
     display: flex;
     flex-direction: column;
   }
-
   .project-card:hover {
     transform: translateY(-15px) scale(1.02);
     box-shadow: 0 25px 60px rgba(0, 0, 0, 0.15);
     border-color: rgba(241, 133, 133, 0.3);
   }
-
-  .project-card:hover .project-overlay {
-    opacity: 1;
-    visibility: visible;
+  .project-card:focus {
+    outline: 2px solid var(--coral);
+    outline-offset: 4px;
   }
 
   .project-image {
@@ -104,22 +150,16 @@
     position: relative;
     overflow: hidden;
   }
-
   .project-image::before {
     content: '';
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    inset: 0;
     background: rgba(0, 0, 0, 0.1);
     transition: background 0.3s ease;
   }
-
   .project-card:hover .project-image::before {
     background: rgba(0, 0, 0, 0.2);
   }
-
   .project-image i {
     font-size: 4rem;
     color: white;
@@ -128,7 +168,6 @@
     position: relative;
     transition: all 0.3s ease;
   }
-
   .project-card:hover .project-image i {
     transform: scale(1.1);
     opacity: 1;
@@ -148,7 +187,6 @@
     z-index: 3;
     transition: all 0.3s ease;
   }
-
   .project-status {
     position: absolute;
     top: 15px;
@@ -163,6 +201,25 @@
     z-index: 3;
   }
 
+  /* Badge levées dans le header */
+  .project-funding-badge {
+    position: absolute;
+    bottom: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(16, 185, 129, .12);
+    border: 1px solid rgba(16,185,129,.25);
+    color: #0f9f74;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    z-index: 3;
+  }
+
   .project-content {
     padding: 2rem;
     flex-grow: 1;
@@ -170,14 +227,12 @@
     flex-direction: column;
     gap: 1rem;
   }
-
   .project-header {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
     gap: 1rem;
   }
-
   .project-title {
     font-size: 1.4rem;
     font-weight: 700;
@@ -185,7 +240,6 @@
     font-family: 'Montserrat', sans-serif;
     line-height: 1.3;
   }
-
   .project-year {
     background: var(--accent-gradient);
     color: var(--deep-purple);
@@ -195,7 +249,6 @@
     font-weight: 600;
     white-space: nowrap;
   }
-
   .project-description {
     color: var(--gray);
     font-size: 0.95rem;
@@ -211,7 +264,6 @@
     font-size: 0.85rem;
     margin: 0.5rem 0;
   }
-
   .project-founders i {
     color: var(--coral);
     font-size: 0.9rem;
@@ -223,7 +275,6 @@
     gap: 0.5rem;
     margin: 0.5rem 0;
   }
-
   .project-tag {
     background: var(--light-gradient);
     color: var(--deep-purple);
@@ -233,7 +284,6 @@
     font-weight: 500;
     transition: all 0.3s ease;
   }
-
   .project-tag:hover {
     background: var(--accent-gradient);
     transform: translateY(-1px);
@@ -247,7 +297,6 @@
     padding-top: 1rem;
     border-top: 1px solid rgba(241, 133, 133, 0.1);
   }
-
   .project-funding {
     display: flex;
     align-items: center;
@@ -256,7 +305,6 @@
     color: var(--deep-purple);
     font-size: 0.95rem;
   }
-
   .project-funding i {
     color: var(--coral);
   }
@@ -275,19 +323,19 @@
     border-radius: 20px;
     font-size: 0.9rem;
   }
-
   .project-link:hover {
     color: var(--deep-purple);
     background: rgba(241, 133, 133, 0.1);
     transform: translateX(5px);
   }
+  .project-link:focus {
+    outline: 2px solid var(--coral);
+    outline-offset: 2px;
+  }
 
   .project-overlay {
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    inset: 0;
     background: rgba(241, 133, 133, 0.95);
     backdrop-filter: blur(10px);
     display: flex;
@@ -298,7 +346,10 @@
     transition: all 0.3s ease;
     z-index: 10;
   }
-
+  .project-card:hover .project-overlay {
+    opacity: 1;
+    visibility: visible;
+  }
   .overlay-content {
     display: flex;
     flex-direction: column;
@@ -307,47 +358,27 @@
     color: white;
     text-align: center;
   }
-
   .overlay-content i {
     font-size: 3rem;
     margin-bottom: 0.5rem;
   }
-
   .overlay-content span {
     font-size: 1.1rem;
     font-weight: 600;
   }
 
   @media (max-width: 768px) {
-    .project-image {
-      height: 180px;
-    }
-
-    .project-image i {
-      font-size: 3rem;
-    }
-
-    .project-content {
-      padding: 1.5rem;
-    }
-
-    .project-title {
-      font-size: 1.2rem;
-    }
-
-    .project-description {
-      font-size: 0.9rem;
-    }
-
+    .project-image { height: 180px; }
+    .project-image i { font-size: 3rem; }
+    .project-content { padding: 1.5rem; }
+    .project-title { font-size: 1.2rem; }
+    .project-description { font-size: 0.9rem; }
     .project-footer {
       flex-direction: column;
       align-items: flex-start;
       gap: 1rem;
     }
-
-    .project-link {
-      align-self: flex-end;
-    }
+    .project-link { align-self: flex-end; }
   }
 
   @media (max-width: 480px) {
@@ -356,28 +387,8 @@
       align-items: flex-start;
       gap: 0.5rem;
     }
-
-    .project-year {
-      align-self: flex-start;
-    }
-
-    .project-tags {
-      gap: 0.3rem;
-    }
-
-    .project-tag {
-      font-size: 0.75rem;
-      padding: 4px 8px;
-    }
-  }
-
-  .project-card:focus {
-    outline: 2px solid var(--coral);
-    outline-offset: 4px;
-  }
-
-  .project-link:focus {
-    outline: 2px solid var(--coral);
-    outline-offset: 2px;
+    .project-year { align-self: flex-start; }
+    .project-tags { gap: 0.3rem; }
+    .project-tag { font-size: 0.75rem; padding: 4px 8px; }
   }
 </style>

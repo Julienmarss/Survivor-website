@@ -61,7 +61,6 @@ export class JebApiService {
     }
   }
 
-  // Test de connexion
   async testConnection() {
     try {
       await this.getAllStartups(0, 1);

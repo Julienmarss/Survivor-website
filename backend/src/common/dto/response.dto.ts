@@ -1,4 +1,3 @@
-// DTO pour standardiser les réponses API
 export class ApiResponse<T = any> {
   success: boolean;
   message: string;

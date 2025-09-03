@@ -6,16 +6,12 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Validation globale
   app.useGlobalPipes(new ValidationPipe({ transform: true }));
 
-  // CORS
   app.enableCors();
 
-  // Prefix API
   app.setGlobalPrefix('api');
 
-  // Swagger documentation
   const config = new DocumentBuilder()
     .setTitle('JEB Incubator API')
     .setDescription('API for JEB Incubator platform')

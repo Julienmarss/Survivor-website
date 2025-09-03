@@ -2,6 +2,9 @@
   import { onMount } from 'svelte';
 
   let heroSection;
+  /**
+	 * @type {HTMLDivElement}
+	 */
   let heroVisual;
   let mounted = false;
 
@@ -19,6 +22,9 @@
     return () => window.removeEventListener('scroll', handleScroll);
   });
 
+  /**
+	 * @param {string} href
+	 */
   function scrollToSection(href) {
     const target = document.querySelector(href);
     if (target) {

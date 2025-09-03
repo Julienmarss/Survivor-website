@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import { projectStats } from '$lib/stores/projects.js';
+  import { projectStats, startupsActions } from '$lib/stores/projects.js';
 
   let statsSection;
   let visible = false;
@@ -13,7 +13,14 @@
 
   $: stats = $projectStats;
 
-  onMount(() => {
+  onMount(async () => {
+    // Charger les statistiques depuis l'API
+    try {
+      await startupsActions.fetchStats();
+    } catch (err) {
+      console.error('Error loading stats:', err);
+    }
+
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach(entry => {
