@@ -1,18 +1,13 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { StartupsService } from './startups.service';
 import { StartupsController } from './startups.controller';
+import { StartupRepository } from './repositories/startups.repository';
 import { JebApiModule } from '../jeb-api/jeb-api.module';
-import { Startup } from './entities/startup.entity';
-import { Founder } from './entities/founder.entity';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([Startup, Founder]),
-    JebApiModule,
-  ],
+  imports: [JebApiModule],
   controllers: [StartupsController],
-  providers: [StartupsService],
-  exports: [StartupsService],
+  providers: [StartupsService, StartupRepository],
+  exports: [StartupsService, StartupRepository],
 })
 export class StartupsModule {}

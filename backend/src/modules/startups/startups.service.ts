@@ -1,172 +1,155 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like } from 'typeorm';
 import { JebApiService } from '../jeb-api/jeb-api.service';
-import { Startup } from './entities/startup.entity';
-import { Founder } from './entities/founder.entity';
+import { StartupRepository } from './repositories/startups.repository';
+import { IStartup, IPaginationResult, ISectorCount, IStats } from './interfaces/startup.interface';
 
 @Injectable()
 export class StartupsService {
   private readonly logger = new Logger(StartupsService.name);
 
   constructor(
-    @InjectRepository(Startup)
-    private readonly startupRepository: Repository<Startup>,
-    @InjectRepository(Founder)
-    private readonly founderRepository: Repository<Founder>,
+    private readonly startupRepository: StartupRepository,
     private readonly jebApiService: JebApiService,
   ) {}
 
-  async findAll(page = 1, limit = 20, sector?: string, search?: string) {
-    const query = this.startupRepository
-      .createQueryBuilder('startup')
-      .leftJoinAndSelect('startup.founders', 'founders')
-      .orderBy('startup.created_at', 'DESC');
-
-    if (sector && sector !== 'all') {
-      query.andWhere('startup.sector = :sector', { sector });
+  async findAll(page = 1, limit = 20, sector?: string, search?: string): Promise<IPaginationResult<IStartup>> {
+    try {
+      const result = await this.startupRepository.findAll(page, limit, sector, search);
+      this.logger.log(`Retrieved ${result.data.length} startups out of ${result.total} total`);
+      return result;
+    } catch (error) {
+      this.logger.error('Failed to fetch startups:', error);
+      throw error;
     }
+  }
 
-    if (search) {
-      query.andWhere(
-        '(startup.name ILIKE :search OR startup.description ILIKE :search)',
-        { search: `%${search}%` }
-      );
+  async findById(id: string): Promise<IStartup | null> {
+    try {
+      const startup = await this.startupRepository.findById(id);
+      if (startup) {
+        this.logger.log(`Found startup: ${startup.name}`);
+      }
+      return startup;
+    } catch (error) {
+      this.logger.error(`Failed to fetch startup ${id}:`, error);
+      throw error;
     }
-
-    const offset = (page - 1) * limit;
-    query.skip(offset).take(limit);
-
-    const [data, total] = await query.getManyAndCount();
-    const totalPages = Math.ceil(total / limit);
-
-    return {
-      data,
-      total,
-      page,
-      limit,
-      totalPages,
-    };
   }
 
-  async findById(id: number) {
-    return this.startupRepository.findOne({
-      where: { id },
-      relations: ['founders'],
-    });
+  async getSectors(): Promise<ISectorCount[]> {
+    try {
+      const sectors = await this.startupRepository.getSectors();
+      this.logger.log(`Found ${sectors.length} sectors`);
+      return sectors;
+    } catch (error) {
+      this.logger.error('Failed to fetch sectors:', error);
+      throw error;
+    }
   }
 
-  async getSectors() {
-    const sectors = await this.startupRepository
-      .createQueryBuilder('startup')
-      .select('startup.sector', 'name')
-      .addSelect('COUNT(*)', 'count')
-      .groupBy('startup.sector')
-      .getRawMany();
-
-    return sectors.map(sector => ({
-      name: sector.name,
-      count: parseInt(sector.count),
-    }));
+  async getStats(): Promise<IStats> {
+    try {
+      const totalProjects = await this.startupRepository.count();
+      
+      const stats: IStats = {
+        totalProjects,
+        totalFunding: 50000000, // Simulé
+        successRate: 85,
+        jobsCreated: 500,
+      };
+      
+      this.logger.log(`Statistics: ${totalProjects} projects total`);
+      return stats;
+    } catch (error) {
+      this.logger.error('Failed to fetch stats:', error);
+      return {
+        totalProjects: 0,
+        totalFunding: 0,
+        successRate: 0,
+        jobsCreated: 0,
+      };
+    }
   }
 
-  async getStats() {
-    const [totalProjects, totalFunding] = await Promise.all([
-      this.startupRepository.count(),
-      Promise.resolve(50000000),
-    ]);
-
-    return {
-      totalProjects,
-      totalFunding,
-      successRate: 85, // Simulé
-      jobsCreated: 500, // Simulé
-    };
-  }
-
-  async syncWithJebApi() {
-    this.logger.log('Starting sync with JEB API...');
-
+  async syncWithJebApi(): Promise<{
+    success: boolean;
+    message: string;
+    created: number;
+    updated: number;
+    total: number;
+  }> {
     try {
       const jebStartups = await this.jebApiService.getAllStartups(0, 1000);
+      this.logger.log(`Fetched ${jebStartups.length} startups from JEB API`);
       
       let created = 0;
       let updated = 0;
+      let errors = 0;
 
       for (const jebStartup of jebStartups) {
-        const fullStartup = await this.jebApiService.getStartupById(jebStartup.id);
-        
-        let startup = await this.startupRepository.findOne({
-          where: { id: fullStartup.id },
-          relations: ['founders'],
-        });
+        try {
+          const fullStartup = await this.jebApiService.getStartupById(jebStartup.id);
+          let existingStartup = await this.startupRepository.findByJebId(fullStartup.id);
 
-        if (startup) {
-          Object.assign(startup, {
+          const startupData: Omit<IStartup, 'id' | 'db_created_at' | 'db_updated_at'> = {
+            jeb_id: fullStartup.id,
             name: fullStartup.name,
             legal_status: fullStartup.legal_status,
             address: fullStartup.address,
             email: fullStartup.email,
             phone: fullStartup.phone,
             created_at: new Date(fullStartup.created_at),
-            description: fullStartup.description,
+            description: fullStartup.description || '',
             website_url: fullStartup.website_url,
             social_media_url: fullStartup.social_media_url,
             project_status: fullStartup.project_status,
             needs: fullStartup.needs,
             sector: fullStartup.sector,
             maturity: fullStartup.maturity,
-          });
-          
-          await this.startupRepository.save(startup);
-          updated++;
-        } else {
-          startup = this.startupRepository.create({
-            id: fullStartup.id,
-            name: fullStartup.name,
-            legal_status: fullStartup.legal_status,
-            address: fullStartup.address,
-            email: fullStartup.email,
-            phone: fullStartup.phone,
-            created_at: new Date(fullStartup.created_at),
-            description: fullStartup.description,
-            website_url: fullStartup.website_url,
-            social_media_url: fullStartup.social_media_url,
-            project_status: fullStartup.project_status,
-            needs: fullStartup.needs,
-            sector: fullStartup.sector,
-            maturity: fullStartup.maturity,
-          });
-          
-          await this.startupRepository.save(startup);
-          created++;
-        }
+          };
 
-        if (fullStartup.founders && fullStartup.founders.length > 0) {
-          await this.founderRepository.delete({ startup_id: startup.id });
-          const founders = fullStartup.founders.map(founderData => 
-            this.founderRepository.create({
-              id: founderData.id,
-              name: founderData.name,
-              startup_id: startup.id,
-            })
-          );
-          
-          await this.founderRepository.save(founders);
+          if (existingStartup) {
+            await this.startupRepository.update(existingStartup.id!, startupData);
+            updated++;
+            this.logger.log(`Updated: ${startupData.name}`);
+          } else {
+            existingStartup = await this.startupRepository.create(startupData);
+            created++;
+            this.logger.log(`Created: ${startupData.name}`);
+          }
+
+          if (fullStartup.founders && fullStartup.founders.length > 0) {
+            await this.startupRepository.deleteFoundersByJebStartupId(fullStartup.id);
+            
+            for (const founderData of fullStartup.founders) {
+              await this.startupRepository.createFounder({
+                jeb_id: founderData.id,
+                name: founderData.name,
+                startup_id: existingStartup.id!,
+                jeb_startup_id: fullStartup.id,
+              });
+            }
+            
+            this.logger.log(`Synced ${fullStartup.founders.length} founders for ${startupData.name}`);
+          }
+
+        } catch (error) {
+          errors++;
+          this.logger.warn(`Failed to sync startup ${jebStartup.id}:`, error.message);
         }
       }
 
-      this.logger.log(`Sync completed: ${created} created, ${updated} updated`);
-      
-      return {
+      const result = {
         success: true,
-        message: `Synchronisation terminée: ${created} créées, ${updated} mises à jour`,
+        message: `Synchronisation terminée: ${created} créées, ${updated} mises à jour${errors > 0 ? `, ${errors} erreurs` : ''}`,
         created,
         updated,
         total: jebStartups.length,
       };
+
+      this.logger.log(result.message);
+      return result;
     } catch (error) {
-      this.logger.error('Sync failed:', error);
       throw error;
     }
   }
