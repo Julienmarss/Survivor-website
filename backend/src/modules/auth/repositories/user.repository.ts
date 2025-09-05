@@ -1,3 +1,4 @@
+// backend/src/modules/auth/repositories/user.repository.ts
 import { Injectable, Logger } from '@nestjs/common';
 import { FirebaseConfigService } from '../../../config/firebase.config';
 import { IUser, UserRole } from '../interfaces/user.interface';
@@ -18,13 +19,7 @@ export class UserRepository {
     return this.firebaseConfig.getAuth();
   }
 
-  async createUser(userData: {
-    email: string;
-    password: string;
-    firstName?: string;
-    lastName?: string;
-    role?: UserRole;
-  }): Promise<IUser> {
+  async createUser(userData: Omit<IUser, 'id' | 'createdAt' | 'updatedAt'>): Promise<IUser> {
     try {
       this.logger.log(`Creating user: ${userData.email}`);
       
@@ -38,26 +33,93 @@ export class UserRepository {
       });
 
       const now = new Date();
-      const userDoc: Omit<IUser, 'id'> = {
+      
+      // Construct base user document
+      const baseUserDoc = {
         uid: authUser.uid,
         email: userData.email,
         firstName: userData.firstName,
         lastName: userData.lastName,
-        role: userData.role || UserRole.VISITOR,
+        role: userData.role,
         isEmailVerified: false,
         createdAt: now,
         updatedAt: now,
       };
 
-        await this.db.collection(this.usersCollection).doc(authUser.uid).set(userDoc);
-        const user = { ...userDoc, id: authUser.uid } as IUser;
+      // Add role-specific fields only if they exist
+      let roleSpecificFields = {};
 
-      this.logger.log(`Created user: ${user.email}`);
+      if (userData.role === UserRole.USER) {
+        roleSpecificFields = this.filterUndefined({
+          age: userData.age,
+          gender: userData.gender,
+        });
+      } else if (userData.role === UserRole.STARTUP) {
+        roleSpecificFields = this.filterUndefined({
+          companyName: userData.companyName,
+          legalStatus: userData.legalStatus,
+          address: userData.address,
+          phone: userData.phone,
+          websiteUrl: userData.websiteUrl,
+          socialMediaUrl: userData.socialMediaUrl,
+          description: userData.description,
+          sector: userData.sector,
+          maturity: userData.maturity,
+          projectStatus: userData.projectStatus,
+          needs: userData.needs,
+          foundingDate: userData.foundingDate,
+          teamSize: userData.teamSize,
+        });
+      } else if (userData.role === UserRole.INVESTOR) {
+        roleSpecificFields = this.filterUndefined({
+          investorType: userData.investorType,
+          investmentRange: userData.investmentRange,
+          preferredSectors: userData.preferredSectors,
+          preferredStages: userData.preferredStages,
+          portfolioSize: userData.portfolioSize,
+          investmentExperience: userData.investmentExperience,
+          linkedinUrl: userData.linkedinUrl,
+          companyWebsite: userData.companyWebsite,
+          investmentCriteria: userData.investmentCriteria,
+          geographicalPreferences: userData.geographicalPreferences,
+        });
+      }
+
+      // Combine base and role-specific fields
+      const userDoc = { ...baseUserDoc, ...roleSpecificFields };
+
+      await this.db.collection(this.usersCollection).doc(authUser.uid).set(userDoc);
+      const user = { ...userDoc, id: authUser.uid } as IUser;
+
+      this.logger.log(`Created user: ${user.email} with role: ${user.role}`);
       return user;
     } catch (error) {
       this.logger.error('Error creating user:', error);
       throw error;
     }
+  }
+
+  /**
+   * Filter out undefined values from an object
+   */
+  private filterUndefined(obj: Record<string, any>): Record<string, any> {
+    const filtered: Record<string, any> = {};
+    
+    for (const [key, value] of Object.entries(obj)) {
+      if (value !== undefined) {
+        if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+          // For nested objects, recursively filter
+          const nestedFiltered = this.filterUndefined(value);
+          if (Object.keys(nestedFiltered).length > 0) {
+            filtered[key] = nestedFiltered;
+          }
+        } else {
+          filtered[key] = value;
+        }
+      }
+    }
+    
+    return filtered;
   }
 
   async findByEmail(email: string): Promise<IUser | null> {
@@ -72,19 +134,7 @@ export class UserRepository {
       }
 
       const doc = snapshot.docs[0];
-      const user = doc.data() as IUser;
-      user.id = doc.id;
-
-      if (user.createdAt && typeof user.createdAt === 'object') {
-        user.createdAt = (user.createdAt as any).toDate();
-      }
-      if (user.updatedAt && typeof user.updatedAt === 'object') {
-        user.updatedAt = (user.updatedAt as any).toDate();
-      }
-      if (user.lastLoginAt && typeof user.lastLoginAt === 'object') {
-        user.lastLoginAt = (user.lastLoginAt as any).toDate();
-      }
-
+      const user = this.mapDocumentToUser(doc);
       return user;
     } catch (error) {
       this.logger.error(`Error finding user by email ${email}:`, error);
@@ -104,19 +154,7 @@ export class UserRepository {
       }
 
       const doc = snapshot.docs[0];
-      const user = doc.data() as IUser;
-      user.id = doc.id;
-
-      if (user.createdAt && typeof user.createdAt === 'object') {
-        user.createdAt = (user.createdAt as any).toDate();
-      }
-      if (user.updatedAt && typeof user.updatedAt === 'object') {
-        user.updatedAt = (user.updatedAt as any).toDate();
-      }
-      if (user.lastLoginAt && typeof user.lastLoginAt === 'object') {
-        user.lastLoginAt = (user.lastLoginAt as any).toDate();
-      }
-
+      const user = this.mapDocumentToUser(doc);
       return user;
     } catch (error) {
       this.logger.error(`Error finding user by UID ${uid}:`, error);
@@ -132,19 +170,7 @@ export class UserRepository {
         return null;
       }
 
-      const user = doc.data() as IUser;
-      user.id = doc.id;
-
-      if (user.createdAt && typeof user.createdAt === 'object') {
-        user.createdAt = (user.createdAt as any).toDate();
-      }
-      if (user.updatedAt && typeof user.updatedAt === 'object') {
-        user.updatedAt = (user.updatedAt as any).toDate();
-      }
-      if (user.lastLoginAt && typeof user.lastLoginAt === 'object') {
-        user.lastLoginAt = (user.lastLoginAt as any).toDate();
-      }
-
+      const user = this.mapDocumentToUser(doc);
       return user;
     } catch (error) {
       this.logger.error(`Error finding user by ID ${id}:`, error);
@@ -168,10 +194,10 @@ export class UserRepository {
 
   async updateUser(userId: string, updateData: Partial<IUser>): Promise<IUser> {
     try {
-      const data = {
+      const data = this.filterUndefined({
         ...updateData,
         updatedAt: new Date()
-      };
+      });
 
       await this.db.collection(this.usersCollection).doc(userId).update(data);
       
@@ -198,7 +224,7 @@ export class UserRepository {
     }
   }
 
-  async getAllUsers(limit: number = 20, pageToken?: string): Promise<{
+  async getAllUsers(limit: number = 20, pageToken?: string, role?: UserRole): Promise<{
     users: IUser[];
     nextPageToken?: string;
   }> {
@@ -206,6 +232,10 @@ export class UserRepository {
       let query = this.db.collection(this.usersCollection)
         .orderBy('createdAt', 'desc')
         .limit(limit);
+
+      if (role) {
+        query = query.where('role', '==', role) as any;
+      }
 
       if (pageToken) {
         query = query.startAfter(pageToken);
@@ -215,19 +245,7 @@ export class UserRepository {
       const users: IUser[] = [];
 
       snapshot.forEach(doc => {
-        const user = doc.data() as IUser;
-        user.id = doc.id;
-
-        if (user.createdAt && typeof user.createdAt === 'object') {
-          user.createdAt = (user.createdAt as any).toDate();
-        }
-        if (user.updatedAt && typeof user.updatedAt === 'object') {
-          user.updatedAt = (user.updatedAt as any).toDate();
-        }
-        if (user.lastLoginAt && typeof user.lastLoginAt === 'object') {
-          user.lastLoginAt = (user.lastLoginAt as any).toDate();
-        }
-
+        const user = this.mapDocumentToUser(doc);
         users.push(user);
       });
 
@@ -241,6 +259,86 @@ export class UserRepository {
       return result;
     } catch (error) {
       this.logger.error('Error getting all users:', error);
+      throw error;
+    }
+  }
+
+  async getStartupProfiles(limit: number = 20, pageToken?: string, sector?: string): Promise<{
+    users: IUser[];
+    nextPageToken?: string;
+  }> {
+    try {
+      let query = this.db.collection(this.usersCollection)
+        .where('role', '==', UserRole.STARTUP)
+        .orderBy('createdAt', 'desc')
+        .limit(limit);
+
+      if (sector) {
+        query = query.where('sector', '==', sector) as any;
+      }
+
+      if (pageToken) {
+        query = query.startAfter(pageToken);
+      }
+
+      const snapshot = await query.get();
+      const users: IUser[] = [];
+
+      snapshot.forEach(doc => {
+        const user = this.mapDocumentToUser(doc);
+        users.push(user);
+      });
+
+      const result: { users: IUser[]; nextPageToken?: string } = { users };
+      
+      if (!snapshot.empty) {
+        const lastDoc = snapshot.docs[snapshot.docs.length - 1];
+        result.nextPageToken = lastDoc.id;
+      }
+
+      return result;
+    } catch (error) {
+      this.logger.error('Error getting startup profiles:', error);
+      throw error;
+    }
+  }
+
+  async getInvestorProfiles(limit: number = 20, pageToken?: string, investorType?: string): Promise<{
+    users: IUser[];
+    nextPageToken?: string;
+  }> {
+    try {
+      let query = this.db.collection(this.usersCollection)
+        .where('role', '==', UserRole.INVESTOR)
+        .orderBy('createdAt', 'desc')
+        .limit(limit);
+
+      if (investorType) {
+        query = query.where('investorType', '==', investorType) as any;
+      }
+
+      if (pageToken) {
+        query = query.startAfter(pageToken);
+      }
+
+      const snapshot = await query.get();
+      const users: IUser[] = [];
+
+      snapshot.forEach(doc => {
+        const user = this.mapDocumentToUser(doc);
+        users.push(user);
+      });
+
+      const result: { users: IUser[]; nextPageToken?: string } = { users };
+      
+      if (!snapshot.empty) {
+        const lastDoc = snapshot.docs[snapshot.docs.length - 1];
+        result.nextPageToken = lastDoc.id;
+      }
+
+      return result;
+    } catch (error) {
+      this.logger.error('Error getting investor profiles:', error);
       throw error;
     }
   }
@@ -260,5 +358,26 @@ export class UserRepository {
       this.logger.error(`Error deleting user ${userId}:`, error);
       throw error;
     }
+  }
+
+  private mapDocumentToUser(doc: any): IUser {
+    const user = doc.data() as IUser;
+    user.id = doc.id;
+
+    // Convertir les timestamps Firestore en Date
+    if (user.createdAt && typeof user.createdAt === 'object') {
+      user.createdAt = (user.createdAt as any).toDate();
+    }
+    if (user.updatedAt && typeof user.updatedAt === 'object') {
+      user.updatedAt = (user.updatedAt as any).toDate();
+    }
+    if (user.lastLoginAt && typeof user.lastLoginAt === 'object') {
+      user.lastLoginAt = (user.lastLoginAt as any).toDate();
+    }
+    if (user.foundingDate && typeof user.foundingDate === 'object') {
+      user.foundingDate = (user.foundingDate as any).toDate();
+    }
+
+    return user;
   }
 }

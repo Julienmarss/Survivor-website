@@ -6,6 +6,10 @@ import { FirebaseModule } from './modules/firebase/firebase.module';
 import { JebApiModule } from './modules/jeb-api/jeb-api.module';
 import { StartupsModule } from './modules/startups/startups.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { AnalyticsModule } from './modules/analystics/analytics.module';
+import { ExportModule } from './modules/export/export.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { HealthModule } from './modules/health/health.module';
 
 @Module({
   imports: [
@@ -18,6 +22,10 @@ import { AuthModule } from './modules/auth/auth.module';
     JebApiModule,
     StartupsModule,
     AuthModule,
+    AnalyticsModule,
+    ExportModule,
+    DashboardModule,
+    HealthModule,
   ],
   controllers: [AppController],
 })

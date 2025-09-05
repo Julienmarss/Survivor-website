@@ -6,8 +6,12 @@
     "start:dev": "nest start --watch",
     "build": "nest build",
     "start": "nest start",
+    "start:prod": "node dist/main",
     "test:firebase": "ts-node src/scripts/test-firebase.ts",
-    "migrate:jeb": "ts-node src/scripts/migrate-jeb-data.ts"
+    "migrate:jeb": "ts-node src/scripts/migrate-jeb-data.ts",
+    "setup:analytics": "ts-node src/scripts/setup-analytics.ts",
+    "demo:prepare": "npm run setup:analytics && echo '🎯 Demo data ready! Check your dashboard at /docs'",
+    "health": "curl -f http://localhost:3000/api/health || exit 1"
   },
   "dependencies": {
     "@nestjs/axios": "^3.0.0",
@@ -31,8 +35,12 @@
   },
   "devDependencies": {
     "@nestjs/cli": "^10.0.0",
+    "@nestjs/testing": "^10.4.20",
     "@types/bcrypt": "^6.0.0",
+    "@types/jest": "^30.0.0",
     "@types/node": "^20.3.1",
+    "jest": "^30.1.3",
+    "ts-jest": "^29.4.1",
     "ts-node": "^10.9.1",
     "typescript": "^5.1.3"
   }
