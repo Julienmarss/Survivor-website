@@ -1,30 +1,10 @@
+// frontend/src/lib/stores/userStore.js
 import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
-import { goto } from '$app/navigation';
-
-// Interface pour typer l'utilisateur (optionnel en JavaScript)
-/**
- * @typedef {Object} User
- * @property {string} id - ID de l'utilisateur
- * @property {string} email - Email de l'utilisateur
- * @property {string} [firstName] - Prénom
- * @property {string} [lastName] - Nom
- * @property {string} [name] - Nom complet
- * @property {string} [first_name] - Prénom (format alternatif)
- * @property {string} [last_name] - Nom (format alternatif)
- * @property {string} [prenom] - Prénom (format français)
- * @property {string} [nom] - Nom (format français)
- * @property {string} [role] - Rôle de l'utilisateur
- * @property {boolean} [isAdmin] - Statut administrateur
- * @property {string} [avatar] - URL de l'avatar
- * @property {string} [phone] - Téléphone
- * @property {Date} [createdAt] - Date de création
- * @property {Date} [lastLogin] - Dernière connexion
- */
+import { authApi } from '../services/authApi.js';
 
 // Clé pour le localStorage
 const USER_STORAGE_KEY = 'jeb_user_data';
-const TOKEN_STORAGE_KEY = 'jeb_auth_token';
 
 // Store initial
 const initialUser = null;
@@ -34,10 +14,6 @@ const { subscribe, set, update } = writable(initialUser);
 
 // Fonctions utilitaires pour le localStorage (seulement côté client)
 const storage = {
-    /**
-     * Sauvegarder les données utilisateur
-     * @param {User|null} userData
-     */
     saveUser: (userData) => {
         if (!browser) return;
         try {
@@ -51,10 +27,6 @@ const storage = {
         }
     },
 
-    /**
-     * Charger les données utilisateur
-     * @returns {User|null}
-     */
     loadUser: () => {
         if (!browser) return null;
         try {
@@ -62,128 +34,17 @@ const storage = {
             return userData ? JSON.parse(userData) : null;
         } catch (error) {
             console.warn('Erreur lors du chargement des données utilisateur:', error);
-            // Nettoyer les données corrompues
             localStorage.removeItem(USER_STORAGE_KEY);
             return null;
         }
     },
 
-    /**
-     * Sauvegarder le token d'authentification
-     * @param {string|null} token
-     */
-    saveToken: (token) => {
-        if (!browser) return;
-        try {
-            if (token) {
-                localStorage.setItem(TOKEN_STORAGE_KEY, token);
-            } else {
-                localStorage.removeItem(TOKEN_STORAGE_KEY);
-            }
-        } catch (error) {
-            console.warn('Erreur lors de la sauvegarde du token:', error);
-        }
-    },
-
-    /**
-     * Charger le token d'authentification
-     * @returns {string|null}
-     */
-    loadToken: () => {
-        if (!browser) return null;
-        try {
-            return localStorage.getItem(TOKEN_STORAGE_KEY);
-        } catch (error) {
-            console.warn('Erreur lors du chargement du token:', error);
-            return null;
-        }
-    },
-
-    /**
-     * Nettoyer tout le localStorage
-     */
     clear: () => {
         if (!browser) return;
         try {
             localStorage.removeItem(USER_STORAGE_KEY);
-            localStorage.removeItem(TOKEN_STORAGE_KEY);
         } catch (error) {
             console.warn('Erreur lors du nettoyage du localStorage:', error);
-        }
-    }
-};
-
-// API Mock (remplace par tes vraies API calls)
-const api = {
-    /**
-     * Vérifier si l'utilisateur est toujours connecté
-     * @param {string} token
-     * @returns {Promise<User|null>}
-     */
-    async verifyToken(token) {
-        try {
-            // Remplace par ton endpoint d'API réel
-            const response = await fetch('/api/auth/verify', {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
-            });
-
-            if (response.ok) {
-                return await response.json();
-            }
-            return null;
-        } catch (error) {
-            console.warn('Erreur lors de la vérification du token:', error);
-            return null;
-        }
-    },
-
-    /**
-     * Connecter un utilisateur
-     * @param {string} email
-     * @param {string} password
-     * @returns {Promise<{user: User, token: string}|null>}
-     */
-    async login(email, password) {
-        try {
-            // Remplace par ton endpoint d'API réel
-            const response = await fetch('/api/auth/login', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ email, password })
-            });
-
-            if (response.ok) {
-                return await response.json();
-            }
-            return null;
-        } catch (error) {
-            console.error('Erreur lors de la connexion:', error);
-            return null;
-        }
-    },
-
-    /**
-     * Déconnecter un utilisateur
-     * @param {string} token
-     */
-    async logout(token) {
-        try {
-            // Remplace par ton endpoint d'API réel
-            await fetch('/api/auth/logout', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
-            });
-        } catch (error) {
-            console.warn('Erreur lors de la déconnexion:', error);
         }
     }
 };
@@ -200,51 +61,140 @@ const userStore = {
         if (!browser) return;
 
         const savedUser = storage.loadUser();
-        const savedToken = storage.loadToken();
+        const token = authApi.getToken();
 
-        if (savedUser && savedToken) {
-            // Vérifier si le token est toujours valide
-            const verifiedUser = await api.verifyToken(savedToken);
-
-            if (verifiedUser) {
-                // Mettre à jour avec les données fraîches
-                set(verifiedUser);
-                storage.saveUser(verifiedUser);
-            } else {
+        if (savedUser && token) {
+            try {
+                // Vérifier si le token est toujours valide
+                const response = await authApi.getCurrentUser();
+                
+                if (response.success && response.data.user) {
+                    // Mettre à jour avec les données fraîches
+                    set(response.data.user);
+                    storage.saveUser(response.data.user);
+                    console.log('User session restored:', response.data.user);
+                } else {
+                    // Token invalide, nettoyer
+                    this.logout();
+                }
+            } catch (error) {
+                console.warn('Failed to restore user session:', error);
                 // Token invalide, nettoyer
                 this.logout();
             }
         } else if (savedUser) {
-            // Données utilisateur sans token (cas d'erreur)
+            // Données utilisateur sans token valide (cas d'erreur)
             set(savedUser);
         }
     },
 
     /**
      * Connecter un utilisateur
-     * @param {string} email
-     * @param {string} password
-     * @returns {Promise<boolean>}
      */
     async login(email, password) {
         try {
-            const result = await api.login(email, password);
+            const response = await authApi.login({ email, password });
 
-            if (result && result.user && result.token) {
+            if (response.success && response.data.user && response.data.accessToken) {
                 // Sauvegarder les données
-                storage.saveUser(result.user);
-                storage.saveToken(result.token);
-
+                storage.saveUser(response.data.user);
+                
                 // Mettre à jour le store
-                set(result.user);
+                set(response.data.user);
 
-                console.log('Utilisateur connecté:', result.user);
-                return true;
+                console.log('Utilisateur connecté:', response.data.user);
+                return { success: true, user: response.data.user };
+            } else {
+                console.error('Login failed: Invalid response format');
+                return { success: false, error: response.message || 'Login failed' };
             }
-            return false;
         } catch (error) {
             console.error('Erreur lors de la connexion:', error);
-            return false;
+            return { success: false, error: error.message || 'Login failed' };
+        }
+    },
+
+    /**
+     * Inscrire un utilisateur standard
+     */
+    async registerUser(userData) {
+        try {
+            const response = await authApi.registerUser(userData);
+
+            if (response.success && response.data.user && response.data.accessToken) {
+                storage.saveUser(response.data.user);
+                set(response.data.user);
+                console.log('Utilisateur inscrit:', response.data.user);
+                return { success: true, user: response.data.user };
+            } else {
+                return { success: false, error: response.message || 'Registration failed' };
+            }
+        } catch (error) {
+            console.error('Erreur lors de l\'inscription utilisateur:', error);
+            return { success: false, error: error.message || 'Registration failed' };
+        }
+    },
+
+    /**
+     * Inscrire une startup
+     */
+    async registerStartup(startupData) {
+        try {
+            const response = await authApi.registerStartup(startupData);
+
+            if (response.success && response.data.user && response.data.accessToken) {
+                storage.saveUser(response.data.user);
+                set(response.data.user);
+                console.log('Startup inscrite:', response.data.user);
+                return { success: true, user: response.data.user };
+            } else {
+                return { success: false, error: response.message || 'Registration failed' };
+            }
+        } catch (error) {
+            console.error('Erreur lors de l\'inscription startup:', error);
+            return { success: false, error: error.message || 'Registration failed' };
+        }
+    },
+
+    /**
+     * Inscrire un investisseur
+     */
+    async registerInvestor(investorData) {
+        try {
+            const response = await authApi.registerInvestor(investorData);
+
+            if (response.success && response.data.user && response.data.accessToken) {
+                storage.saveUser(response.data.user);
+                set(response.data.user);
+                console.log('Investisseur inscrit:', response.data.user);
+                return { success: true, user: response.data.user };
+            } else {
+                return { success: false, error: response.message || 'Registration failed' };
+            }
+        } catch (error) {
+            console.error('Erreur lors de l\'inscription investisseur:', error);
+            return { success: false, error: error.message || 'Registration failed' };
+        }
+    },
+
+    /**
+     * Inscrire un étudiant
+     */
+    async registerStudent(studentData) {
+        try {
+            const response = await authApi.registerStudent(studentData);
+
+            if (response.success && response.data.user && response.data.accessToken) {
+                storage.saveUser(response.data.user);
+                set(response.data.user);
+                console.log('Étudiant inscrit:', response.data.user);
+                return { success: true, user: response.data.user };
+            } else {
+                return { success: false, error: response.message || 'Registration failed' };
+            }
+        } catch (error) {
+            console.error('Erreur lors de l\'inscription étudiant:', error);
+            return { success: false, error: error.message || 'Registration failed' };
         }
     },
 
@@ -252,25 +202,20 @@ const userStore = {
      * Déconnecter l'utilisateur
      */
     async logout() {
-        const token = storage.loadToken();
-
-        // Appeler l'API de déconnexion si on a un token
-        if (token) {
-            await api.logout(token);
+        try {
+            await authApi.logout();
+        } catch (error) {
+            console.warn('Logout API call failed:', error);
         }
 
-        // Nettoyer le localStorage
+        // Nettoyer le localStorage et le store
         storage.clear();
-
-        // Réinitialiser le store
         set(null);
-
         console.log('Utilisateur déconnecté');
     },
 
     /**
      * Mettre à jour les données utilisateur
-     * @param {Partial<User>} userData
      */
     updateUser(userData) {
         update(currentUser => {
@@ -285,51 +230,73 @@ const userStore = {
 
     /**
      * Définir un utilisateur (pour les cas de connexion externe)
-     * @param {User} userData
-     * @param {string} [token]
      */
     setUser(userData, token = null) {
         storage.saveUser(userData);
         if (token) {
-            storage.saveToken(token);
+            authApi.setToken(token);
         }
         set(userData);
     },
 
     /**
      * Vérifier si l'utilisateur est connecté
-     * @returns {Promise<boolean>}
      */
     async isLoggedIn() {
-        const token = storage.loadToken();
+        const token = authApi.getToken();
         if (!token) return false;
 
-        const user = await api.verifyToken(token);
-        return !!user;
+        try {
+            const response = await authApi.getCurrentUser();
+            return response.success && response.data.user;
+        } catch (error) {
+            return false;
+        }
     },
 
     /**
      * Obtenir le token actuel
-     * @returns {string|null}
      */
     getToken() {
-        return storage.loadToken();
+        return authApi.getToken();
     },
 
     /**
      * Rafraîchir les données utilisateur depuis l'API
      */
     async refresh() {
-        const token = storage.loadToken();
-        if (!token) return;
-
-        const freshUserData = await api.verifyToken(token);
-        if (freshUserData) {
-            storage.saveUser(freshUserData);
-            set(freshUserData);
-        } else {
-            // Token invalide, déconnecter
+        try {
+            const response = await authApi.getCurrentUser();
+            if (response.success && response.data.user) {
+                storage.saveUser(response.data.user);
+                set(response.data.user);
+            } else {
+                // Token invalide, déconnecter
+                this.logout();
+            }
+        } catch (error) {
+            console.warn('Failed to refresh user data:', error);
             this.logout();
+        }
+    },
+
+    /**
+     * Mettre à jour le profil utilisateur
+     */
+    async updateProfile(profileData) {
+        try {
+            const response = await authApi.updateProfile(profileData);
+            
+            if (response.success && response.data.user) {
+                storage.saveUser(response.data.user);
+                set(response.data.user);
+                return { success: true, user: response.data.user };
+            } else {
+                return { success: false, error: response.message || 'Update failed' };
+            }
+        } catch (error) {
+            console.error('Erreur lors de la mise à jour du profil:', error);
+            return { success: false, error: error.message || 'Update failed' };
         }
     }
 };

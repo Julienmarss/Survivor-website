@@ -19,35 +19,35 @@ export class UserRepository {
     return this.firebaseConfig.getAuth();
   }
 
-async createUser(userData: Omit<IUser, 'id' | 'createdAt' | 'updatedAt'>): Promise<IUser> {
-  try {
-    this.logger.log(`Creating user WITHOUT Firebase Auth: ${userData.email}`);
+  async createUser(userData: Omit<IUser, 'id' | 'createdAt' | 'updatedAt'>): Promise<IUser> {
+    try {
+      this.logger.log(`Creating user: ${userData.email}`);
 
-    const now = new Date();
-    const id = this.db.collection(this.usersCollection).doc().id; // génère un id Firestore
+      const now = new Date();
+      const id = this.db.collection(this.usersCollection).doc().id;
 
-    const userDoc = {
-      id,
-      email: userData.email,
-      password: userData.password, // ⚠️ à hasher si tu veux de la sécurité
-      firstName: userData.firstName,
-      lastName: userData.lastName,
-      role: userData.role,
-      isEmailVerified: false,
-      createdAt: now,
-      updatedAt: now,
-      ...this.filterUndefined(userData),
-    };
+      const userDoc = {
+        id,
+        email: userData.email,
+        password: userData.password,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        role: userData.role,
+        isEmailVerified: false,
+        createdAt: now,
+        updatedAt: now,
+        ...this.filterUndefined(userData),
+      };
 
-    await this.db.collection(this.usersCollection).doc(id).set(userDoc);
+      await this.db.collection(this.usersCollection).doc(id).set(userDoc);
 
-    this.logger.log(`Created user (Firestore only): ${userData.email}`);
-    return userDoc as IUser;
-  } catch (error) {
-    this.logger.error('Error creating user:', error);
-    throw error;
+      this.logger.log(`Created user: ${userData.email}`);
+      return { ...userDoc, password: undefined } as IUser;
+    } catch (error) {
+      this.logger.error('Error creating user:', error);
+      throw error;
+    }
   }
-}
 
   /**
    * Filter out undefined values from an object
@@ -58,7 +58,6 @@ async createUser(userData: Omit<IUser, 'id' | 'createdAt' | 'updatedAt'>): Promi
     for (const [key, value] of Object.entries(obj)) {
       if (value !== undefined) {
         if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
-          // For nested objects, recursively filter
           const nestedFiltered = this.filterUndefined(value);
           if (Object.keys(nestedFiltered).length > 0) {
             filtered[key] = nestedFiltered;
@@ -188,7 +187,10 @@ async createUser(userData: Omit<IUser, 'id' | 'createdAt' | 'updatedAt'>): Promi
       }
 
       if (pageToken) {
-        query = query.startAfter(pageToken);
+        const pageDoc = await this.db.collection(this.usersCollection).doc(pageToken).get();
+        if (pageDoc.exists) {
+          query = query.startAfter(pageDoc);
+        }
       }
 
       const snapshot = await query.get();
@@ -196,12 +198,12 @@ async createUser(userData: Omit<IUser, 'id' | 'createdAt' | 'updatedAt'>): Promi
 
       snapshot.forEach(doc => {
         const user = this.mapDocumentToUser(doc);
-        users.push(user);
+        users.push({ ...user, password: undefined });
       });
 
       const result: { users: IUser[]; nextPageToken?: string } = { users };
       
-      if (!snapshot.empty) {
+      if (!snapshot.empty && snapshot.docs.length === limit) {
         const lastDoc = snapshot.docs[snapshot.docs.length - 1];
         result.nextPageToken = lastDoc.id;
       }
@@ -228,7 +230,10 @@ async createUser(userData: Omit<IUser, 'id' | 'createdAt' | 'updatedAt'>): Promi
       }
 
       if (pageToken) {
-        query = query.startAfter(pageToken);
+        const pageDoc = await this.db.collection(this.usersCollection).doc(pageToken).get();
+        if (pageDoc.exists) {
+          query = query.startAfter(pageDoc);
+        }
       }
 
       const snapshot = await query.get();
@@ -236,12 +241,12 @@ async createUser(userData: Omit<IUser, 'id' | 'createdAt' | 'updatedAt'>): Promi
 
       snapshot.forEach(doc => {
         const user = this.mapDocumentToUser(doc);
-        users.push(user);
+        users.push({ ...user, password: undefined });
       });
 
       const result: { users: IUser[]; nextPageToken?: string } = { users };
       
-      if (!snapshot.empty) {
+      if (!snapshot.empty && snapshot.docs.length === limit) {
         const lastDoc = snapshot.docs[snapshot.docs.length - 1];
         result.nextPageToken = lastDoc.id;
       }
@@ -268,7 +273,10 @@ async createUser(userData: Omit<IUser, 'id' | 'createdAt' | 'updatedAt'>): Promi
       }
 
       if (pageToken) {
-        query = query.startAfter(pageToken);
+        const pageDoc = await this.db.collection(this.usersCollection).doc(pageToken).get();
+        if (pageDoc.exists) {
+          query = query.startAfter(pageDoc);
+        }
       }
 
       const snapshot = await query.get();
@@ -276,12 +284,12 @@ async createUser(userData: Omit<IUser, 'id' | 'createdAt' | 'updatedAt'>): Promi
 
       snapshot.forEach(doc => {
         const user = this.mapDocumentToUser(doc);
-        users.push(user);
+        users.push({ ...user, password: undefined });
       });
 
       const result: { users: IUser[]; nextPageToken?: string } = { users };
       
-      if (!snapshot.empty) {
+      if (!snapshot.empty && snapshot.docs.length === limit) {
         const lastDoc = snapshot.docs[snapshot.docs.length - 1];
         result.nextPageToken = lastDoc.id;
       }
@@ -298,7 +306,11 @@ async createUser(userData: Omit<IUser, 'id' | 'createdAt' | 'updatedAt'>): Promi
       const user = await this.findById(userId);
       
       if (user && user.uid) {
-        await this.auth.deleteUser(user.uid);
+        try {
+          await this.auth.deleteUser(user.uid);
+        } catch (firebaseError) {
+          this.logger.warn(`Could not delete Firebase Auth user ${user.uid}:`, firebaseError);
+        }
       }
       
       await this.db.collection(this.usersCollection).doc(userId).delete();

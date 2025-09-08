@@ -1,5 +1,5 @@
 // backend/src/modules/auth/dto/auth.dto.ts
-import { IsEmail, IsString, IsOptional, IsEnum, MinLength, IsNumber, IsArray, IsObject, ValidateNested, IsUrl, Min, Max, IsDateString } from 'class-validator';
+import { IsEmail, IsString, IsOptional, IsEnum, MinLength, IsNumber, IsArray, IsObject, ValidateNested, IsUrl, Min, Max, IsDateString, IsBoolean } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { UserRole } from '../interfaces/user.interface';
@@ -61,6 +61,8 @@ export class RegisterUserDto {
   role: UserRole.USER = UserRole.USER;
 }
 
+// backend/src/modules/auth/dto/auth.dto.ts - RegisterStartupDto corrigé
+
 export class RegisterStartupDto {
   @ApiProperty({ example: 'founder@startup.com' })
   @IsEmail()
@@ -79,52 +81,94 @@ export class RegisterStartupDto {
   @IsString()
   lastName: string;
 
+  @ApiProperty({ example: '+33123456789', required: false })
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @ApiProperty({ example: 'https://linkedin.com/in/john-doe', required: false })
+  @IsOptional()
+  @IsUrl()
+  linkedin?: string;
+
   @ApiProperty({ example: 'TechCorp SAS' })
   @IsString()
   companyName: string;
 
   @ApiProperty({ 
-    enum: ['SAS', 'SARL', 'SA', 'SNC', 'SCS', 'Auto-entrepreneur', 'EURL'], 
-    example: 'SAS' 
+    enum: ['FinTech', 'HealthTech', 'EdTech', 'GreenTech', 'AgriTech', 'PropTech', 'FoodTech', 'RetailTech', 'Mobility', 'Cybersécurité', 'Intelligence Artificielle', 'Blockchain', 'IoT', 'Robotique', 'Gaming', 'Media & Entertainment', 'E-commerce', 'SaaS', 'Autre'], 
+    example: 'FinTech' 
   })
   @IsString()
-  legalStatus: string;
-
-  @ApiProperty({ example: '123 Innovation Street, 75001 Paris, France' })
-  @IsString()
-  address: string;
-
-  @ApiProperty({ example: '+33123456789' })
-  @IsString()
-  phone: string;
-
-  @ApiProperty({ example: 'https://techcorp.com', required: false })
-  @IsOptional()
-  @IsUrl()
-  websiteUrl?: string;
-
-  @ApiProperty({ example: 'https://linkedin.com/company/techcorp', required: false })
-  @IsOptional()
-  @IsUrl()
-  socialMediaUrl?: string;
+  sector: string;
 
   @ApiProperty({ example: 'We develop innovative AI solutions for healthcare.' })
   @IsString()
   description: string;
 
+  // Support des deux noms de champs pour la maturité
   @ApiProperty({ 
-    enum: ['Technology', 'Healthcare', 'Finance', 'Education', 'E-commerce', 'Energy', 'Transportation', 'Agriculture', 'Food', 'Other'], 
-    example: 'Technology' 
+    enum: ['Idéation', 'Prototype', 'MVP', 'Validation', 'Traction', 'Croissance', 'Scale-up'], 
+    example: 'MVP',
+    required: false
   })
+  @IsOptional()
   @IsString()
-  sector: string;
+  maturity?: string;
 
   @ApiProperty({ 
-    enum: ['Ideation', 'Prototype', 'MVP', 'Early Stage', 'Growth', 'Mature'], 
-    example: 'MVP' 
+    enum: ['Idéation', 'Prototype', 'MVP', 'Validation', 'Traction', 'Croissance', 'Scale-up'], 
+    example: 'MVP',
+    required: false
   })
+  @IsOptional()
   @IsString()
-  maturity: string;
+  stage?: string;
+
+  // Support des deux formats pour foundingDate
+  @ApiProperty({ example: '2022-01-15', required: false })
+  @IsOptional()
+  @IsDateString()
+  foundingDate?: string;
+
+  @ApiProperty({ example: 2024, required: false })
+  @IsOptional()
+  @IsNumber()
+  foundingYear?: number;
+
+  // TeamSize comme string (frontend) ou number
+  @ApiProperty({ 
+    oneOf: [
+      { type: 'string', example: '2-3 personnes' },
+      { type: 'number', example: 3 }
+    ],
+    example: '2-3 personnes'
+  })
+  teamSize: string | number;
+
+  @ApiProperty({ example: 'https://techcorp.com', required: false })
+  @IsOptional()
+  @IsUrl()
+  website?: string;
+
+  @ApiProperty({ 
+    enum: ['SAS', 'SARL', 'SA', 'SNC', 'SCS', 'Auto-entrepreneur', 'EURL'], 
+    example: 'SAS',
+    required: false
+  })
+  @IsOptional()
+  @IsString()
+  legalStatus?: string;
+
+  @ApiProperty({ example: '123 Innovation Street, 75001 Paris, France', required: false })
+  @IsOptional()
+  @IsString()
+  address?: string;
+
+  @ApiProperty({ example: 'https://linkedin.com/company/techcorp', required: false })
+  @IsOptional()
+  @IsUrl()
+  socialMediaUrl?: string;
 
   @ApiProperty({ 
     enum: ['Active', 'Seeking Investment', 'Paused', 'Completed'], 
@@ -143,15 +187,41 @@ export class RegisterStartupDto {
   @IsString()
   needs?: string;
 
-  @ApiProperty({ example: '2022-01-15' })
-  @IsDateString()
-  foundingDate: string;
+  // Champs spécifiques du frontend
+  @ApiProperty({ example: 'Jean Dupont, CTO expert en IA', required: false })
+  @IsOptional()
+  @IsString()
+  coFounders?: string;
 
-  @ApiProperty({ example: 5 })
-  @IsNumber()
-  @Min(1)
-  @Max(1000)
-  teamSize: number;
+  @ApiProperty({ example: '100K€ - 500K€', required: false })
+  @IsOptional()
+  @IsString()
+  fundingNeeds?: string;
+
+  @ApiProperty({ example: 'Autofinancement', required: false })
+  @IsOptional()
+  @IsString()
+  currentFunding?: string;
+
+  @ApiProperty({ example: 'Révolutionner le secteur de la santé avec l\'IA', required: false })
+  @IsOptional()
+  @IsString()
+  vision?: string;
+
+  @ApiProperty({ example: 'Validation technique, accès au marché', required: false })
+  @IsOptional()
+  @IsString()
+  challenges?: string;
+
+  @ApiProperty({ example: 'Accéder au réseau d\'experts et d\'investisseurs', required: false })
+  @IsOptional()
+  @IsString()
+  why?: string;
+
+  @ApiProperty({ example: true, required: false })
+  @IsOptional()
+  @IsBoolean()
+  acceptTerms?: boolean;
 
   role: UserRole.STARTUP = UserRole.STARTUP;
 }
@@ -174,12 +244,42 @@ export class RegisterInvestorDto {
   @IsString()
   lastName: string;
 
+  @ApiProperty({ example: '+33123456789', required: false })
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @ApiProperty({ example: 'https://linkedin.com/in/janesmith', required: false })
+  @IsOptional()
+  @IsUrl()
+  linkedinUrl?: string;
+
+  @ApiProperty({ example: 'Investment Capital' })
+  @IsString()
+  companyName: string;
+
+  @ApiProperty({ example: 'Partner' })
+  @IsString()
+  position: string;
+
   @ApiProperty({ 
-    enum: ['angel', 'venture_capital', 'private_equity', 'corporate', 'government'], 
-    example: 'angel' 
+    enum: ['Business Angel', 'Fonds d\'investissement', 'Corporate Venture', 'Family Office', 'Fonds de pension', 'Investisseur institutionnel', 'Crowdfunding platform', 'Autre'], 
+    example: 'Business Angel' 
   })
-  @IsEnum(['angel', 'venture_capital', 'private_equity', 'corporate', 'government'])
-  investorType: 'angel' | 'venture_capital' | 'private_equity' | 'corporate' | 'government';
+  @IsEnum(['Business Angel', 'Fonds d\'investissement', 'Corporate Venture', 'Family Office', 'Fonds de pension', 'Investisseur institutionnel', 'Crowdfunding platform', 'Autre'])
+  investorType: string;
+
+  @ApiProperty({ example: 'https://investmentcapital.com', required: false })
+  @IsOptional()
+  @IsUrl()
+  website?: string;
+
+  @ApiProperty({ 
+    enum: ['Moins d\'1 an', '1-3 ans', '3-5 ans', '5-10 ans', '10-15 ans', 'Plus de 15 ans'], 
+    example: '5-10 ans' 
+  })
+  @IsString()
+  experience: string;
 
   @ApiProperty({ type: InvestmentRangeDto })
   @ValidateNested()
@@ -188,7 +288,7 @@ export class RegisterInvestorDto {
 
   @ApiProperty({ 
     type: [String], 
-    example: ['Technology', 'Healthcare', 'Finance'],
+    example: ['FinTech', 'HealthTech', 'EdTech'],
     description: 'Preferred investment sectors'
   })
   @IsArray()
@@ -197,42 +297,46 @@ export class RegisterInvestorDto {
 
   @ApiProperty({ 
     type: [String], 
-    example: ['Seed', 'Series A', 'Series B'],
+    example: ['Pre-seed', 'Seed', 'Série A'],
     description: 'Preferred investment stages'
   })
   @IsArray()
   @IsString({ each: true })
   preferredStages: string[];
 
-  @ApiProperty({ example: 25 })
-  @IsNumber()
-  @Min(0)
-  @Max(1000)
-  portfolioSize: number;
-
-  @ApiProperty({ example: 8, description: 'Years of investment experience' })
-  @IsNumber()
-  @Min(0)
-  @Max(50)
-  investmentExperience: number;
-
-  @ApiProperty({ example: 'https://linkedin.com/in/janesmith', required: false })
-  @IsOptional()
-  @IsUrl()
-  linkedinUrl?: string;
-
-  @ApiProperty({ example: 'https://janesmith.com', required: false })
-  @IsOptional()
-  @IsUrl()
-  companyWebsite?: string;
+  @ApiProperty({ 
+    enum: ['France uniquement', 'Europe', 'Europe + États-Unis', 'Global', 'Marchés émergents', 'Asie-Pacifique', 'Afrique', 'Amérique du Nord'], 
+    example: 'Europe' 
+  })
+  @IsString()
+  geography: string;
 
   @ApiProperty({ 
-    example: 'Looking for early-stage tech startups with strong teams',
+    example: 'Recherche d\'équipes solides avec une vision claire',
     required: false 
   })
   @IsOptional()
   @IsString()
   investmentCriteria?: string;
+
+  @ApiProperty({ example: 25, required: false })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(1000)
+  portfolioSize?: number;
+
+  @ApiProperty({ example: 8, description: 'Years of investment experience', required: false })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(50)
+  investmentExperience?: number;
+
+  @ApiProperty({ example: 'https://janesmith.com', required: false })
+  @IsOptional()
+  @IsUrl()
+  companyWebsite?: string;
 
   @ApiProperty({ 
     type: [String], 
@@ -244,6 +348,30 @@ export class RegisterInvestorDto {
   @IsString({ each: true })
   geographicalPreferences?: string[];
 
+  @ApiProperty({ 
+    example: 'Apporter mon expertise en scaling et en levées de fonds',
+    required: false 
+  })
+  @IsOptional()
+  @IsString()
+  expertise?: string;
+
+  @ApiProperty({ 
+    example: 'Présentation de quelques investissements réussis...',
+    required: false 
+  })
+  @IsOptional()
+  @IsString()
+  portfolio?: string;
+
+  @ApiProperty({ 
+    example: 'Accéder aux meilleures startups françaises',
+    required: false 
+  })
+  @IsOptional()
+  @IsString()
+  motivation?: string;
+
   role: UserRole.INVESTOR = UserRole.INVESTOR;
 }
 
@@ -254,7 +382,7 @@ export class UpdateRoleDto {
 }
 
 export class VerifyTokenDto {
-  @ApiProperty({ example: 'firebase-id-token' })
+  @ApiProperty({ example: 'jwt-token-here' })
   @IsString()
   token: string;
 }

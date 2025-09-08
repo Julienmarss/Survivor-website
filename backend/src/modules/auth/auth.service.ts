@@ -4,7 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import { UserRepository } from './repositories/user.repository';
 import { IUser, IAuthResponse, UserRole } from './interfaces/user.interface';
 import { LoginDto, RegisterUserDto, RegisterStartupDto, RegisterInvestorDto } from './dto/auth.dto';
-import * as admin from 'firebase-admin';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class AuthService {
@@ -17,8 +17,6 @@ export class AuthService {
 
   /**
    * @brief Register a standard user
-   * @param registerDto User registration data
-   * @return IAuthResponse
    */
   async registerUser(registerDto: RegisterUserDto): Promise<IAuthResponse> {
     try {
@@ -28,14 +26,18 @@ export class AuthService {
         throw new ConflictException('User with this email already exists');
       }
 
+      // Hasher le mot de passe
+      const hashedPassword = await bcrypt.hash(registerDto.password, 10);
+
       const userData: Omit<IUser, 'id' | 'createdAt' | 'updatedAt'> = this.cleanObjectDeep({
         email: registerDto.email,
-        password: registerDto.password,
+        password: hashedPassword,
         firstName: registerDto.firstName,
         lastName: registerDto.lastName,
         role: UserRole.USER,
         age: registerDto.age,
         gender: registerDto.gender,
+        isEmailVerified: false,
       });
 
       const user = await this.userRepository.createUser(userData);
@@ -49,10 +51,8 @@ export class AuthService {
     }
   }
 
-  /**
-   * @brief Register a startup user
-   * @param registerDto Startup registration data
-   * @return IAuthResponse
+/**
+   * @brief Register a startup user - Version corrigée
    */
   async registerStartup(registerDto: RegisterStartupDto): Promise<IAuthResponse> {
     try {
@@ -62,25 +62,58 @@ export class AuthService {
         throw new ConflictException('User with this email already exists');
       }
 
+      // Hasher le mot de passe
+      const hashedPassword = await bcrypt.hash(registerDto.password, 10);
+
+      // Parser teamSize si c'est une string
+      let teamSizeNumber: number;
+      if (typeof registerDto.teamSize === 'string') {
+        const teamSizeMapping: Record<string, number> = {
+          '1 (Solo founder)': 1,
+          '2-3 personnes': 3,
+          '4-6 personnes': 5,
+          '7-10 personnes': 8,
+          '11-20 personnes': 15,
+          '20+ personnes': 25
+        };
+        teamSizeNumber = teamSizeMapping[registerDto.teamSize] || 1;
+      } else {
+        teamSizeNumber = registerDto.teamSize || 1;
+      }
+
+      // Gérer les dates
+      let foundingDate: Date;
+      if (registerDto.foundingDate) {
+        foundingDate = new Date(registerDto.foundingDate);
+      } else if (registerDto.foundingYear) {
+        foundingDate = new Date(`${registerDto.foundingYear}-01-01`);
+      } else {
+        foundingDate = new Date(); // Date actuelle par défaut
+      }
+
+      // Utiliser stage ou maturity
+      const maturity = registerDto.maturity || registerDto.stage || 'MVP';
+
       const userData: Omit<IUser, 'id' | 'createdAt' | 'updatedAt'> = this.cleanObjectDeep({
         email: registerDto.email,
-        password: registerDto.password,
+        password: hashedPassword,
         firstName: registerDto.firstName,
         lastName: registerDto.lastName,
         role: UserRole.STARTUP,
         companyName: registerDto.companyName,
-        legalStatus: registerDto.legalStatus,
-        address: registerDto.address,
+        legalStatus: registerDto.legalStatus || 'SAS',
+        address: registerDto.address || '',
         phone: registerDto.phone,
-        websiteUrl: registerDto.websiteUrl,
+        websiteUrl: registerDto.website,
         socialMediaUrl: registerDto.socialMediaUrl,
         description: registerDto.description,
         sector: registerDto.sector,
-        maturity: registerDto.maturity,
-        projectStatus: registerDto.projectStatus,
-        needs: registerDto.needs,
-        foundingDate: new Date(registerDto.foundingDate),
-        teamSize: registerDto.teamSize,
+        maturity: maturity,
+        projectStatus: registerDto.projectStatus || 'Active',
+        needs: registerDto.needs || registerDto.fundingNeeds,
+        foundingDate: foundingDate,
+        teamSize: teamSizeNumber,
+        isEmailVerified: false,
       });
 
       const user = await this.userRepository.createUser(userData);
@@ -96,8 +129,6 @@ export class AuthService {
 
   /**
    * @brief Register an investor user
-   * @param registerDto Investor registration data
-   * @return IAuthResponse
    */
   async registerInvestor(registerDto: RegisterInvestorDto): Promise<IAuthResponse> {
     try {
@@ -107,17 +138,59 @@ export class AuthService {
         throw new ConflictException('User with this email already exists');
       }
 
+      // Hasher le mot de passe
+      const hashedPassword = await bcrypt.hash(registerDto.password, 10);
+
+      // Mapper le type d'investisseur du frontend vers le backend
+      const mapInvestorType = (type: string): 'angel' | 'venture_capital' | 'private_equity' | 'corporate' | 'government' => {
+        const mapping: Record<string, 'angel' | 'venture_capital' | 'private_equity' | 'corporate' | 'government'> = {
+          'Business Angel': 'angel',
+          'Fonds d\'investissement': 'venture_capital',
+          'Corporate Venture': 'corporate',
+          'Family Office': 'venture_capital',
+          'Fonds de pension': 'venture_capital',
+          'Investisseur institutionnel': 'venture_capital',
+          'Crowdfunding platform': 'venture_capital',
+          'Autre': 'angel'
+        };
+        return mapping[type] || 'angel';
+      };
+
+      // Parser l'investmentRange si c'est une string
+      let investmentRangeData: { min: number; max: number } | undefined;
+      if (registerDto.investmentRange) {
+        if (typeof registerDto.investmentRange === 'string') {
+          // Parser les fourchettes comme "100K€ - 500K€"
+          const parseRange = (rangeStr: string): { min: number; max: number } => {
+            const ranges: Record<string, { min: number; max: number }> = {
+              'Moins de 10K€': { min: 0, max: 10000 },
+              '10K€ - 50K€': { min: 10000, max: 50000 },
+              '50K€ - 100K€': { min: 50000, max: 100000 },
+              '100K€ - 500K€': { min: 100000, max: 500000 },
+              '500K€ - 1M€': { min: 500000, max: 1000000 },
+              '1M€ - 5M€': { min: 1000000, max: 5000000 },
+              '5M€ - 10M€': { min: 5000000, max: 10000000 },
+              'Plus de 10M€': { min: 10000000, max: 100000000 }
+            };
+            return ranges[rangeStr] || { min: 0, max: 1000000 };
+          };
+          investmentRangeData = parseRange(registerDto.investmentRange);
+        } else {
+          investmentRangeData = {
+            min: registerDto.investmentRange.min,
+            max: registerDto.investmentRange.max,
+          };
+        }
+      }
+
       const userData: Omit<IUser, 'id' | 'createdAt' | 'updatedAt'> = this.cleanObjectDeep({
         email: registerDto.email,
-        password: registerDto.password,
+        password: hashedPassword,
         firstName: registerDto.firstName,
         lastName: registerDto.lastName,
         role: UserRole.INVESTOR,
-        investorType: registerDto.investorType,
-        investmentRange: registerDto.investmentRange ? {
-          min: registerDto.investmentRange.min,
-          max: registerDto.investmentRange.max,
-        } : undefined,
+        investorType: mapInvestorType(registerDto.investorType),
+        investmentRange: investmentRangeData,
         preferredSectors: registerDto.preferredSectors,
         preferredStages: registerDto.preferredStages,
         portfolioSize: registerDto.portfolioSize,
@@ -126,6 +199,7 @@ export class AuthService {
         companyWebsite: registerDto.companyWebsite,
         investmentCriteria: registerDto.investmentCriteria,
         geographicalPreferences: registerDto.geographicalPreferences,
+        isEmailVerified: false,
       });
 
       const user = await this.userRepository.createUser(userData);
@@ -141,14 +215,18 @@ export class AuthService {
 
   /**
    * @brief Authenticate user login
-   * @param loginDto Login data
-   * @return IAuthResponse
    */
   async login(loginDto: LoginDto): Promise<IAuthResponse> {
     try {
       this.logger.log(`Login attempt for: ${loginDto.email}`);
       const user = await this.userRepository.findByEmail(loginDto.email);
       if (!user) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
+
+      // Vérifier le mot de passe
+      const isPasswordValid = await bcrypt.compare(loginDto.password, user.password);
+      if (!isPasswordValid) {
         throw new UnauthorizedException('Invalid credentials');
       }
 
@@ -165,12 +243,14 @@ export class AuthService {
 
   /**
    * @brief Validate user existence
-   * @param userId User identifier
-   * @return IUser | null
    */
   async validateUser(userId: string): Promise<IUser | null> {
     try {
-      return await this.userRepository.findById(userId);
+      const user = await this.userRepository.findById(userId);
+      if (user) {
+        return { ...user, password: undefined };
+      }
+      return null;
     } catch (error) {
       this.logger.error(`Error validating user ${userId}:`, error);
       return null;
@@ -178,21 +258,20 @@ export class AuthService {
   }
 
   /**
-   * @brief Verify Firebase token validity
-   * @param token Firebase token
-   * @return IUser | null
+   * @brief Verify JWT token
    */
-  async verifyFirebaseToken(token: string): Promise<IUser | null> {
+  async verifyToken(token: string): Promise<IUser | null> {
     try {
-      const decodedToken = await this.userRepository.verifyToken(token);
-      const user = await this.userRepository.findByUid(decodedToken.uid);
+      const decoded = this.jwtService.verify(token);
+      const user = await this.userRepository.findById(decoded.sub);
       if (user) {
         await this.userRepository.updateLastLogin(user.id!);
+        return { ...user, password: undefined };
       }
-      return user;
+      return null;
     } catch (error) {
-      this.logger.error('Firebase token verification failed:', error);
-      throw new UnauthorizedException('Invalid Firebase token');
+      this.logger.error('Token verification failed:', error);
+      throw new UnauthorizedException('Invalid token');
     }
   }
 
@@ -244,18 +323,20 @@ export class AuthService {
 
   /**
    * @brief Generate JWT access token
-   * @param user IUser object
-   * @return string
    */
   private generateAccessToken(user: IUser): string {
-    const payload = { sub: user.id, email: user.email, role: user.role, uid: user.uid };
+    const payload = { 
+      sub: user.id, 
+      email: user.email, 
+      role: user.role, 
+      firstName: user.firstName,
+      lastName: user.lastName
+    };
     return this.jwtService.sign(payload);
   }
 
   /**
    * @brief Recursively remove undefined values from an object
-   * @param obj Object to clean
-   * @return Object without undefined values
    */
   private cleanObjectDeep<T>(obj: T): T {
     if (obj === null || obj === undefined) {
