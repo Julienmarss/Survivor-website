@@ -19,85 +19,35 @@ export class UserRepository {
     return this.firebaseConfig.getAuth();
   }
 
-  async createUser(userData: Omit<IUser, 'id' | 'createdAt' | 'updatedAt'>): Promise<IUser> {
-    try {
-      this.logger.log(`Creating user: ${userData.email}`);
-      
-      const authUser = await this.auth.createUser({
-        email: userData.email,
-        password: userData.password,
-        displayName: userData.firstName && userData.lastName 
-          ? `${userData.firstName} ${userData.lastName}` 
-          : userData.firstName,
-        emailVerified: false,
-      });
+async createUser(userData: Omit<IUser, 'id' | 'createdAt' | 'updatedAt'>): Promise<IUser> {
+  try {
+    this.logger.log(`Creating user WITHOUT Firebase Auth: ${userData.email}`);
 
-      const now = new Date();
-      
-      // Construct base user document
-      const baseUserDoc = {
-        uid: authUser.uid,
-        email: userData.email,
-        firstName: userData.firstName,
-        lastName: userData.lastName,
-        role: userData.role,
-        isEmailVerified: false,
-        createdAt: now,
-        updatedAt: now,
-      };
+    const now = new Date();
+    const id = this.db.collection(this.usersCollection).doc().id; // génère un id Firestore
 
-      // Add role-specific fields only if they exist
-      let roleSpecificFields = {};
+    const userDoc = {
+      id,
+      email: userData.email,
+      password: userData.password, // ⚠️ à hasher si tu veux de la sécurité
+      firstName: userData.firstName,
+      lastName: userData.lastName,
+      role: userData.role,
+      isEmailVerified: false,
+      createdAt: now,
+      updatedAt: now,
+      ...this.filterUndefined(userData),
+    };
 
-      if (userData.role === UserRole.USER) {
-        roleSpecificFields = this.filterUndefined({
-          age: userData.age,
-          gender: userData.gender,
-        });
-      } else if (userData.role === UserRole.STARTUP) {
-        roleSpecificFields = this.filterUndefined({
-          companyName: userData.companyName,
-          legalStatus: userData.legalStatus,
-          address: userData.address,
-          phone: userData.phone,
-          websiteUrl: userData.websiteUrl,
-          socialMediaUrl: userData.socialMediaUrl,
-          description: userData.description,
-          sector: userData.sector,
-          maturity: userData.maturity,
-          projectStatus: userData.projectStatus,
-          needs: userData.needs,
-          foundingDate: userData.foundingDate,
-          teamSize: userData.teamSize,
-        });
-      } else if (userData.role === UserRole.INVESTOR) {
-        roleSpecificFields = this.filterUndefined({
-          investorType: userData.investorType,
-          investmentRange: userData.investmentRange,
-          preferredSectors: userData.preferredSectors,
-          preferredStages: userData.preferredStages,
-          portfolioSize: userData.portfolioSize,
-          investmentExperience: userData.investmentExperience,
-          linkedinUrl: userData.linkedinUrl,
-          companyWebsite: userData.companyWebsite,
-          investmentCriteria: userData.investmentCriteria,
-          geographicalPreferences: userData.geographicalPreferences,
-        });
-      }
+    await this.db.collection(this.usersCollection).doc(id).set(userDoc);
 
-      // Combine base and role-specific fields
-      const userDoc = { ...baseUserDoc, ...roleSpecificFields };
-
-      await this.db.collection(this.usersCollection).doc(authUser.uid).set(userDoc);
-      const user = { ...userDoc, id: authUser.uid } as IUser;
-
-      this.logger.log(`Created user: ${user.email} with role: ${user.role}`);
-      return user;
-    } catch (error) {
-      this.logger.error('Error creating user:', error);
-      throw error;
-    }
+    this.logger.log(`Created user (Firestore only): ${userData.email}`);
+    return userDoc as IUser;
+  } catch (error) {
+    this.logger.error('Error creating user:', error);
+    throw error;
   }
+}
 
   /**
    * Filter out undefined values from an object

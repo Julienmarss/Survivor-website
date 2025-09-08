@@ -23,25 +23,19 @@ export class StartupRepository {
     try {
       this.logger.log(`Finding startups - page: ${page}, limit: ${limit}, sector: ${sector}, search: ${search}`);
       
-      let snapshot;
-      
+      let query = this.db.collection(this.startupsCollection)
+        .orderBy('created_at', 'desc');
+
       if (sector && sector !== 'all') {
-        snapshot = await this.db.collection(this.startupsCollection)
-          .where('sector', '==', sector)
-          .orderBy('created_at', 'desc')
-          .get();
-      } else {
-        snapshot = await this.db.collection(this.startupsCollection)
-          .orderBy('created_at', 'desc')
-          .get();
+        query = query.where('sector', '==', sector) as any;
       }
-      
+
+      const snapshot = await query.get();
       let startups: IStartup[] = [];
 
       snapshot.forEach(doc => {
         const data = doc.data() as IStartup;
         data.id = doc.id;
-        
         if (data.created_at && typeof data.created_at === 'object') {
           data.created_at = (data.created_at as any).toDate();
         }
@@ -51,7 +45,6 @@ export class StartupRepository {
         if (data.db_updated_at && typeof data.db_updated_at === 'object') {
           data.db_updated_at = (data.db_updated_at as any).toDate();
         }
-        
         startups.push(data);
       });
 
@@ -60,8 +53,7 @@ export class StartupRepository {
         startups = startups.filter(startup => 
           startup.name.toLowerCase().includes(searchLower) ||
           startup.description?.toLowerCase().includes(searchLower) ||
-          startup.sector.toLowerCase().includes(searchLower) ||
-          startup.maturity.toLowerCase().includes(searchLower)
+          startup.sector.toLowerCase().includes(searchLower)
         );
       }
 
