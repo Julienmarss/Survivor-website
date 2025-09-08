@@ -226,14 +226,14 @@
           {/if}
         </div>
 
-        <!-- Bouton CTA -->
-        {#if !user}
-          <div class="hidden md:block">
-            <button class="bg-gradient-to-r from-[#c174f2] to-[#cb90f1] text-white px-6 py-2 rounded-full text-sm font-medium hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-300">
-              Rejoignez-nous
-            </button>
-          </div>
-        {/if}
+<!-- Bouton CTA -->
+{#if !user}
+  <div class="hidden md:block">
+    <a href="/register" class="bg-gradient-to-r from-[#c174f2] to-[#cb90f1] text-white px-6 py-2 rounded-full text-sm font-medium hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-300 inline-block">
+      Rejoignez-nous
+    </a>
+  </div>
+{/if}
 
         <!-- Bouton menu mobile -->
         <div class="md:hidden">
