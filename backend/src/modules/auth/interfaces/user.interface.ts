@@ -1,4 +1,4 @@
-// backend/src/modules/auth/interfaces/user.interface.ts
+// backend/src/modules/auth/interfaces/user.interface.ts - Version étendue
 export interface IUser {
   id?: string;
   uid?: string;
@@ -15,6 +15,13 @@ export interface IUser {
   // Champs spécifiques aux utilisateurs normaux
   age?: number;
   gender?: 'male' | 'female' | 'other' | 'prefer_not_to_say';
+  
+  // ✅ AJOUT : Champs spécifiques aux étudiants
+  school?: string;
+  level?: string; // Niveau d'études (Bac +1, +2, etc.)
+  field?: string; // Domaine d'études
+  motivation?: string;
+  interests?: string[]; // Centres d'intérêt
   
   // Champs spécifiques aux startups
   companyName?: string;
@@ -40,7 +47,7 @@ export interface IUser {
   preferredSectors?: string[];
   preferredStages?: string[];
   portfolioSize?: number;
-  investmentExperience?: number; // années d'expérience
+  investmentExperience?: number;
   linkedinUrl?: string;
   companyWebsite?: string;
   investmentCriteria?: string;
@@ -51,7 +58,7 @@ export enum UserRole {
   ADMIN = 'admin',
   STARTUP = 'startup',
   INVESTOR = 'investor',
-  USER = 'user', // Changé de VISITOR à USER pour plus de clarté
+  USER = 'user', // Pour les étudiants et autres utilisateurs
 }
 
 export interface IAuthResponse {
@@ -75,6 +82,13 @@ export interface IRegisterDto {
   // Champs spécifiques selon le rôle
   age?: number;
   gender?: 'male' | 'female' | 'other' | 'prefer_not_to_say';
+  
+  // ✅ Student fields
+  school?: string;
+  level?: string;
+  field?: string;
+  motivation?: string;
+  interests?: string[];
   
   // Startup fields
   companyName?: string;

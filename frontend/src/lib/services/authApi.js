@@ -1,4 +1,4 @@
-// frontend/src/lib/services/authApi.js
+// frontend/src/lib/services/authApi.js - Version corrigée
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 class AuthApiService {
@@ -37,11 +37,28 @@ class AuthApiService {
         }
     }
 
-    // Inscription utilisateur standard
-    async registerUser(userData) {
+    // ✅ Inscription étudiant corrigée - utilise registerUser
+    async registerStudent(studentData) {
+        const mappedData = {
+            email: studentData.email,
+            password: studentData.password,
+            firstName: studentData.firstName,
+            lastName: studentData.lastName,
+            age: 20, // Valeur par défaut pour les étudiants
+            gender: 'prefer_not_to_say', // Valeur par défaut
+            
+            // ✅ Champs spécifiques aux étudiants
+            school: studentData.school,
+            level: studentData.level,
+            field: studentData.field,
+            linkedin: studentData.linkedin,
+            motivation: studentData.motivation,
+            interests: studentData.interests || [],
+        };
+
         const response = await this.request('/auth/register/user', {
             method: 'POST',
-            body: JSON.stringify(userData),
+            body: JSON.stringify(mappedData),
         });
         
         if (response.success && response.data.accessToken) {
@@ -51,9 +68,8 @@ class AuthApiService {
         return response;
     }
 
-    // Inscription startup
+    // Inscription startup (garde la logique existante)
     async registerStartup(startupData) {
-        // Mapper les données du frontend vers le format backend
         const mappedData = {
             email: startupData.email,
             password: startupData.password,
@@ -67,13 +83,11 @@ class AuthApiService {
             maturity: startupData.stage || startupData.maturity,
             foundingDate: startupData.foundingYear ? `${startupData.foundingYear}-01-01` : startupData.foundingDate,
             teamSize: parseInt(startupData.teamSize?.match(/\d+/)?.[0] || 1),
-            websiteUrl: startupData.website,
+            website: startupData.website,
             projectStatus: 'Active',
             needs: startupData.fundingNeeds,
-            // Champs supplémentaires du frontend
-            legalStatus: 'SAS', // valeur par défaut
-            address: '', // valeur par défaut
-            // Mapper les champs spécifiques du frontend
+            legalStatus: 'SAS',
+            address: '',
             coFounders: startupData.coFounders,
             fundingNeeds: startupData.fundingNeeds,
             currentFunding: startupData.currentFunding,
@@ -94,9 +108,8 @@ class AuthApiService {
         return response;
     }
 
-    // Inscription investisseur
+    // Inscription investisseur (garde la logique existante) 
     async registerInvestor(investorData) {
-        // Mapper les données du frontend vers le format backend
         const mappedData = {
             email: investorData.email,
             password: investorData.password,
@@ -109,10 +122,9 @@ class AuthApiService {
             investorType: investorData.investorType,
             website: investorData.website,
             experience: investorData.experience,
-            // Gérer investmentRange selon le format
             investmentRange: typeof investorData.investmentRange === 'string' 
-                ? investorData.investmentRange // Le backend parsera la string
-                : investorData.investmentRange, // Ou utiliser l'objet directement
+                ? investorData.investmentRange
+                : investorData.investmentRange,
             preferredSectors: investorData.preferredSectors || [],
             preferredStages: investorData.preferredStages || [],
             geography: investorData.geography,
@@ -138,27 +150,11 @@ class AuthApiService {
         return response;
     }
 
-    // Inscription étudiant (comme utilisateur standard avec des champs supplémentaires)
-    async registerStudent(studentData) {
-        const mappedData = {
-            email: studentData.email,
-            password: studentData.password,
-            firstName: studentData.firstName,
-            lastName: studentData.lastName,
-            age: 20, // valeur par défaut pour les étudiants
-            gender: 'prefer_not_to_say', // valeur par défaut
-            // On peut ajouter des champs spécifiques aux étudiants plus tard
-            school: studentData.school,
-            level: studentData.level,
-            field: studentData.field,
-            linkedin: studentData.linkedin,
-            motivation: studentData.motivation,
-            interests: studentData.interests,
-        };
-
+    // Inscription utilisateur standard (pour référence)
+    async registerUser(userData) {
         const response = await this.request('/auth/register/user', {
             method: 'POST',
-            body: JSON.stringify(mappedData),
+            body: JSON.stringify(userData),
         });
         
         if (response.success && response.data.accessToken) {

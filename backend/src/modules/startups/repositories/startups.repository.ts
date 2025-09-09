@@ -1,3 +1,4 @@
+// backend/src/modules/startups/repositories/startups.repository.ts - Version corrigée
 import { Injectable, Logger } from '@nestjs/common';
 import { FirebaseConfigService } from '../../../config/firebase.config';
 import { IStartup, IFounder, IPaginationResult, ISectorCount } from '../interfaces/startup.interface';
@@ -12,6 +13,95 @@ export class StartupRepository {
 
   private get db() {
     return this.firebaseConfig.getFirestore();
+  }
+
+  /**
+   * Nettoie un objet en supprimant les valeurs undefined/null
+   * et en les remplaçant par des valeurs par défaut appropriées
+   */
+  private cleanDataForFirestore(obj: any): any {
+    if (obj === null || obj === undefined) {
+      return null;
+    }
+    
+    if (Array.isArray(obj)) {
+      return obj
+        .map(item => this.cleanDataForFirestore(item))
+        .filter(item => item !== null && item !== undefined);
+    }
+    
+    if (typeof obj === 'object' && obj instanceof Date) {
+      return obj; // Les dates sont OK
+    }
+    
+    if (typeof obj === 'object') {
+      const cleaned: any = {};
+      
+      for (const [key, value] of Object.entries(obj)) {
+        if (value !== undefined && value !== null) {
+          cleaned[key] = this.cleanDataForFirestore(value);
+        } else {
+          // Remplacer undefined/null par des valeurs par défaut selon le type de champ
+          if (typeof value === 'string' || key.includes('url') || key.includes('_url')) {
+            cleaned[key] = ''; // Chaîne vide pour les strings et URLs
+          } else if (typeof value === 'number') {
+            cleaned[key] = 0; // 0 pour les nombres
+          }
+          // Ne pas inclure les autres valeurs undefined/null
+        }
+      }
+      
+      return cleaned;
+    }
+    
+    return obj;
+  }
+
+  async create(startupData: Omit<IStartup, 'id' | 'db_created_at' | 'db_updated_at'>): Promise<IStartup> {
+    try {
+      this.logger.log(`Creating startup: ${startupData.name}`);
+      
+      const now = new Date();
+      const rawData: Omit<IStartup, 'id'> = {
+        ...startupData,
+        db_created_at: now,
+        db_updated_at: now
+      };
+
+      // ✅ CORRECTION : Nettoyer les données avant l'envoi à Firestore
+      const cleanedData = this.cleanDataForFirestore(rawData);
+      
+      this.logger.log('📝 Data to be saved (cleaned):', JSON.stringify(cleanedData, null, 2));
+
+      const docRef = await this.db.collection(this.startupsCollection).add(cleanedData);
+      const startup = { ...cleanedData, id: docRef.id } as IStartup;
+
+      this.logger.log(`✅ Startup created successfully: ${startup.name} (ID: ${startup.id})`);
+      return startup;
+    } catch (error) {
+      this.logger.error('❌ Error creating startup:', error);
+      throw error;
+    }
+  }
+
+  async createFounder(founderData: Omit<IFounder, 'id'>): Promise<IFounder> {
+    try {
+      this.logger.log(`Creating founder: ${founderData.name} for startup ${founderData.startup_id}`);
+      
+      // ✅ CORRECTION : Nettoyer les données founder aussi
+      const cleanedData = this.cleanDataForFirestore(founderData);
+      
+      this.logger.log('📝 Founder data to be saved (cleaned):', JSON.stringify(cleanedData, null, 2));
+
+      const docRef = await this.db.collection(this.foundersCollection).add(cleanedData);
+      const founder = { ...cleanedData, id: docRef.id };
+      
+      this.logger.log(`✅ Founder created successfully: ${founder.name} (ID: ${docRef.id})`);
+      return founder;
+    } catch (error) {
+      this.logger.error('❌ Error creating founder:', error);
+      throw error;
+    }
   }
 
   async findAll(
@@ -143,33 +233,14 @@ export class StartupRepository {
     }
   }
 
-  async create(startupData: Omit<IStartup, 'id' | 'db_created_at' | 'db_updated_at'>): Promise<IStartup> {
-    try {
-      const now = new Date();
-      const data: Omit<IStartup, 'id'> = {
-        ...startupData,
-        db_created_at: now,
-        db_updated_at: now
-      };
-
-      const docRef = await this.db.collection(this.startupsCollection).add(data);
-      const startup = { ...data, id: docRef.id } as IStartup;
-
-      return startup;
-    } catch (error) {
-      this.logger.error('Error creating startup:', error);
-      throw error;
-    }
-  }
-
   async update(id: string, updateData: Partial<IStartup>): Promise<IStartup> {
     try {
-      const data = {
+      const cleanedData = this.cleanDataForFirestore({
         ...updateData,
         db_updated_at: new Date()
-      };
+      });
 
-      await this.db.collection(this.startupsCollection).doc(id).update(data);
+      await this.db.collection(this.startupsCollection).doc(id).update(cleanedData);
       
       const updated = await this.findById(id);
       if (!updated) {
@@ -242,19 +313,6 @@ export class StartupRepository {
     } catch (error) {
       this.logger.error(`Error getting founders for startup ${startupId}:`, error);
       return [];
-    }
-  }
-
-  async createFounder(founderData: Omit<IFounder, 'id'>): Promise<IFounder> {
-    try {
-      const docRef = await this.db.collection(this.foundersCollection).add(founderData);
-      const founder = { ...founderData, id: docRef.id };
-      
-      this.logger.log(`Created founder: ${founder.name} (${docRef.id})`);
-      return founder;
-    } catch (error) {
-      this.logger.error('Error creating founder:', error);
-      throw error;
     }
   }
 

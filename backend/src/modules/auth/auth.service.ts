@@ -1,7 +1,9 @@
-// backend/src/modules/auth/auth.service.ts
+// backend/src/modules/auth/auth.service.ts - Version corrigée
+
 import { Injectable, Logger, UnauthorizedException, ConflictException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UserRepository } from './repositories/user.repository';
+import { StartupRepository } from '../startups/repositories/startups.repository'; // AJOUT
 import { IUser, IAuthResponse, UserRole } from './interfaces/user.interface';
 import { LoginDto, RegisterUserDto, RegisterStartupDto, RegisterInvestorDto } from './dto/auth.dto';
 import * as bcrypt from 'bcrypt';
@@ -13,50 +15,17 @@ export class AuthService {
   constructor(
     private readonly userRepository: UserRepository,
     private readonly jwtService: JwtService,
+    private readonly startupRepository: StartupRepository, // AJOUT
   ) {}
 
   /**
-   * @brief Register a standard user
-   */
-  async registerUser(registerDto: RegisterUserDto): Promise<IAuthResponse> {
-    try {
-      this.logger.log(`Registering user: ${registerDto.email}`);
-      const existingUser = await this.userRepository.findByEmail(registerDto.email);
-      if (existingUser) {
-        throw new ConflictException('User with this email already exists');
-      }
-
-      // Hasher le mot de passe
-      const hashedPassword = await bcrypt.hash(registerDto.password, 10);
-
-      const userData: Omit<IUser, 'id' | 'createdAt' | 'updatedAt'> = this.cleanObjectDeep({
-        email: registerDto.email,
-        password: hashedPassword,
-        firstName: registerDto.firstName,
-        lastName: registerDto.lastName,
-        role: UserRole.USER,
-        age: registerDto.age,
-        gender: registerDto.gender,
-        isEmailVerified: false,
-      });
-
-      const user = await this.userRepository.createUser(userData);
-      const accessToken = this.generateAccessToken(user);
-
-      this.logger.log(`User registered successfully: ${user.email}`);
-      return { user: { ...user, password: undefined }, accessToken };
-    } catch (error) {
-      this.logger.error('User registration failed:', error);
-      throw error;
-    }
-  }
-
-/**
-   * @brief Register a startup user - Version corrigée
+   * @brief Register a startup user - Version avec debug complet
    */
   async registerStartup(registerDto: RegisterStartupDto): Promise<IAuthResponse> {
     try {
-      this.logger.log(`Registering startup: ${registerDto.email}`);
+      this.logger.log(`📝 Starting startup registration for: ${registerDto.email}`);
+      
+      // Vérifier si l'utilisateur existe déjà
       const existingUser = await this.userRepository.findByEmail(registerDto.email);
       if (existingUser) {
         throw new ConflictException('User with this email already exists');
@@ -64,8 +33,9 @@ export class AuthService {
 
       // Hasher le mot de passe
       const hashedPassword = await bcrypt.hash(registerDto.password, 10);
+      this.logger.log('🔐 Password hashed successfully');
 
-      // Parser teamSize si c'est une string
+      // Parser teamSize
       let teamSizeNumber: number;
       if (typeof registerDto.teamSize === 'string') {
         const teamSizeMapping: Record<string, number> = {
@@ -80,6 +50,7 @@ export class AuthService {
       } else {
         teamSizeNumber = registerDto.teamSize || 1;
       }
+      this.logger.log(`👥 Team size mapped: ${registerDto.teamSize} -> ${teamSizeNumber}`);
 
       // Gérer les dates
       let foundingDate: Date;
@@ -88,12 +59,15 @@ export class AuthService {
       } else if (registerDto.foundingYear) {
         foundingDate = new Date(`${registerDto.foundingYear}-01-01`);
       } else {
-        foundingDate = new Date(); // Date actuelle par défaut
+        foundingDate = new Date();
       }
+      this.logger.log(`📅 Founding date: ${foundingDate.toISOString()}`);
 
       // Utiliser stage ou maturity
       const maturity = registerDto.maturity || registerDto.stage || 'MVP';
+      this.logger.log(`📊 Maturity stage: ${maturity}`);
 
+      // Préparer les données utilisateur
       const userData: Omit<IUser, 'id' | 'createdAt' | 'updatedAt'> = this.cleanObjectDeep({
         email: registerDto.email,
         password: hashedPassword,
@@ -116,13 +90,131 @@ export class AuthService {
         isEmailVerified: false,
       });
 
+      this.logger.log('👤 Creating user in Firebase...');
       const user = await this.userRepository.createUser(userData);
+      this.logger.log(`✅ User created successfully with ID: ${user.id}`);
+
+      // 🔥 CRÉATION DE LA STARTUP ET DU FOUNDER
+      this.logger.log('🏢 Starting startup creation process...');
+      
+      try {
+        // Vérifier que le StartupRepository est bien injecté
+        if (!this.startupRepository) {
+          throw new Error('❌ StartupRepository is not injected!');
+        }
+        this.logger.log('✅ StartupRepository is available');
+
+        // Préparer les données de la startup
+        const startupData = {
+          jeb_id: Math.floor(Math.random() * 1000000), // ID temporaire unique
+          name: registerDto.companyName,
+          legal_status: registerDto.legalStatus || 'SAS',
+          address: registerDto.address || '',
+          email: registerDto.email,
+          phone: registerDto.phone || '',
+          created_at: foundingDate,
+          description: registerDto.description,
+          website_url: registerDto.website,
+          social_media_url: registerDto.socialMediaUrl,
+          project_status: registerDto.projectStatus || 'Active',
+          needs: registerDto.needs || registerDto.fundingNeeds,
+          sector: registerDto.sector,
+          maturity: maturity,
+        };
+
+        this.logger.log('🏢 Creating startup with data:', JSON.stringify(startupData, null, 2));
+        const startup = await this.startupRepository.create(startupData);
+        this.logger.log(`✅ Startup created successfully with ID: ${startup.id}`);
+
+        // Créer le founder principal
+        this.logger.log('👨‍💼 Creating founder...');
+        const founderData = {
+          jeb_id: Math.floor(Math.random() * 1000000), // ID temporaire unique
+          name: `${registerDto.firstName} ${registerDto.lastName}`,
+          startup_id: startup.id!,
+          jeb_startup_id: startupData.jeb_id,
+        };
+
+        this.logger.log('👨‍💼 Creating founder with data:', JSON.stringify(founderData, null, 2));
+        const founder = await this.startupRepository.createFounder(founderData);
+        this.logger.log(`✅ Founder created successfully with ID: ${founder.id}`);
+
+        this.logger.log(`🎉 Complete startup creation successful:
+          - User ID: ${user.id}
+          - Startup ID: ${startup.id}
+          - Founder ID: ${founder.id}
+        `);
+
+      } catch (startupError) {
+        this.logger.error('❌ STARTUP CREATION FAILED:', startupError);
+        this.logger.error('Stack trace:', startupError.stack);
+        
+        // Log détaillé de l'erreur
+        if (startupError.message) {
+          this.logger.error('Error message:', startupError.message);
+        }
+        if (startupError.code) {
+          this.logger.error('Error code:', startupError.code);
+        }
+        
+        // ⚠️ Important : On continue quand même l'inscription utilisateur
+        this.logger.warn('🚨 Startup creation failed but user creation succeeded');
+      }
+
+      // Générer le token
+      const accessToken = this.generateAccessToken(user);
+      this.logger.log('🔑 Access token generated successfully');
+
+      this.logger.log(`🎉 Startup registration completed for: ${user.email}`);
+      return { user: { ...user, password: undefined }, accessToken };
+      
+    } catch (error) {
+      this.logger.error('💥 Startup registration completely failed:', error);
+      this.logger.error('Stack trace:', error.stack);
+      throw error;
+    }
+  }
+
+  /**
+   * @brief Register a standard user - Version améliorée pour les étudiants
+   */
+  async registerUser(userData: RegisterUserDto): Promise<IAuthResponse> {
+    try {
+      this.logger.log(`Registering user: ${userData.email}`);
+      const existingUser = await this.userRepository.findByEmail(userData.email);
+      if (existingUser) {
+        throw new ConflictException('User with this email already exists');
+      }
+
+      // Hasher le mot de passe
+      const hashedPassword = await bcrypt.hash(userData.password, 10);
+
+      const userDataClean: Omit<IUser, 'id' | 'createdAt' | 'updatedAt'> = this.cleanObjectDeep({
+        email: userData.email,
+        password: hashedPassword,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        role: UserRole.USER,
+        age: userData.age || 20, // Âge par défaut pour les étudiants
+        gender: userData.gender || 'prefer_not_to_say',
+        isEmailVerified: false,
+        
+        // ✅ AJOUT : Support des champs étudiants
+        ...(userData as any).school && { school: (userData as any).school },
+        ...(userData as any).level && { level: (userData as any).level },
+        ...(userData as any).field && { field: (userData as any).field },
+        ...(userData as any).linkedin && { linkedinUrl: (userData as any).linkedin },
+        ...(userData as any).motivation && { motivation: (userData as any).motivation },
+        ...(userData as any).interests && { interests: (userData as any).interests },
+      });
+
+      const user = await this.userRepository.createUser(userDataClean);
       const accessToken = this.generateAccessToken(user);
 
-      this.logger.log(`Startup registered successfully: ${user.email}`);
+      this.logger.log(`User registered successfully: ${user.email}`);
       return { user: { ...user, password: undefined }, accessToken };
     } catch (error) {
-      this.logger.error('Startup registration failed:', error);
+      this.logger.error('User registration failed:', error);
       throw error;
     }
   }
