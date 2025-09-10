@@ -1,0 +1,34 @@
+/* Personnalisation FullCalendar */
+.fc-theme-standard .fc-scrollgrid {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.fc-col-header-cell {
+  background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+  font-weight: 600;
+  color: #475569;
+}
+
+.fc-daygrid-day-top {
+  justify-content: center;
+}
+
+.fc-day-today {
+  background-color: rgba(193, 116, 242, 0.1) !important;
+}
+
+.fc-event-title {
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+/* Animation pour les événements */
+.fc-event {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.fc-event:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(193, 116, 242, 0.3);
+}

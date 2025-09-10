@@ -25,6 +25,6 @@ import { StartupsModule } from '../startups/startups.module'; // AJOUT
   ],
   controllers: [AuthController, ProfileController],
   providers: [AuthService, UserRepository, JwtAuthGuard, RolesGuard],
-  exports: [AuthService, JwtAuthGuard, RolesGuard],
+  exports: [AuthService, JwtAuthGuard, RolesGuard, JwtModule],
 })
 export class AuthModule {}

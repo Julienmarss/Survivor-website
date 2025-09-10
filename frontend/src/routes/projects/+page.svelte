@@ -5,6 +5,7 @@
     import Footer from '../../lib/components/Footer.svelte';
     import LoadingSpinner from '../../lib/components/LoadingSpinner.svelte';
     import ErrorMessage from '../../lib/components/ErrorMessage.svelte';
+    import StartupCard from '../../lib/components/StartupCard.svelte';
 
     import {
         startupsList,
@@ -19,50 +20,33 @@
     let searchInput = '';
     let selectedSector = 'all';
     let selectedMaturity = 'all';
+    let viewMode = 'default'; // 'default', 'compact', 'minimal', 'detailed'
+    let isVisible = true;
 
     // Variables réactives
-    $: startups = $startupsList;
-    $: availableSectors = $sectors;
+    $: startups = Array.isArray($startupsList) ? $startupsList : [];
+    $: availableSectors = Array.isArray($sectors) ? $sectors : [];
     $: isLoading = $loading;
     $: errorMessage = $error;
-    $: paginationInfo = $pagination;
-    $: currentFilters = $filters;
+    $: paginationInfo = $pagination ?? { page: 1, limit: 12, total: 0, totalPages: 1 };
+    $: currentFilters = $filters ?? { search: '', sector: 'all', maturity: 'all' };
 
     // Sync des filtres locaux avec le store
     $: {
-        if (searchInput !== currentFilters.search) {
-            searchInput = currentFilters.search;
-        }
-        if (selectedSector !== currentFilters.sector) {
-            selectedSector = currentFilters.sector;
-        }
-    }
-
-    function getCategoryGradient(category) {
-        const gradients = {
-            'GreenTech': 'from-green-400 to-emerald-600',
-            'HealthTech': 'from-blue-400 to-cyan-600',
-            'FinTech': 'from-purple-400 to-indigo-600',
-            'AgriTech': 'from-yellow-400 to-orange-600',
-            'EdTech': 'from-pink-400 to-rose-600',
-            'CyberSecurity': 'from-red-400 to-pink-600',
-            'Tech': 'from-blue-400 to-purple-600',
-            'Santé': 'from-blue-400 to-cyan-600',
-            'Finance': 'from-purple-400 to-indigo-600',
-            'Agriculture': 'from-yellow-400 to-orange-600',
-            'Éducation': 'from-pink-400 to-rose-600',
-            'Environnement': 'from-green-400 to-emerald-600',
-            'Technologie': 'from-blue-400 to-purple-600',
-            'default': 'from-gray-400 to-gray-600'
-        };
-        return gradients[category] || gradients.default;
+        if (searchInput !== currentFilters.search) searchInput = currentFilters.search ?? '';
+        if (selectedSector !== currentFilters.sector) selectedSector = currentFilters.sector ?? 'all';
+        if (selectedMaturity !== currentFilters.maturity) selectedMaturity = currentFilters.maturity ?? 'all';
     }
 
     onMount(async () => {
-        await Promise.all([
-            startupsActions.loadStartups(),
-            startupsActions.loadSectors()
-        ]);
+        try {
+            await Promise.all([
+                startupsActions.loadStartups(),
+                startupsActions.loadSectors()
+            ]);
+        } catch (e) {
+            console.error('Init load error:', e);
+        }
     });
 
     async function handleSearch() {
@@ -78,11 +62,20 @@
     }
 
     async function handlePageChange(newPage) {
+        if (newPage < 1 || newPage > (paginationInfo.totalPages ?? 1)) return;
         await startupsActions.loadStartups(newPage);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    function navigateToStartup(startupId) {
-        goto(`/startup/${startupId}`);
+    function handleCardClick(event) {
+        const startup = event.detail;
+        if (!startup?.id) return;
+        goto(`/startup/${startup.id}`);
+    }
+
+    function handleWebsiteClick(event) {
+        const { url } = event.detail || {};
+        if (url) window.open(url, '_blank', 'noopener,noreferrer');
     }
 
     function retryLoad() {
@@ -100,38 +93,39 @@
 
     // Fonction pour générer les numéros de page
     function generatePageNumbers() {
-        const current = paginationInfo.page;
-        const total = paginationInfo.totalPages;
+        const current = paginationInfo.page ?? 1;
+        const total = paginationInfo.totalPages ?? 1;
         const pages = [];
 
-        // Affiche toujours la première page
+        if (total <= 1) return [1];
+
         pages.push(1);
 
-        // Calcule la plage autour de la page courante
         let start = Math.max(2, current - 2);
         let end = Math.min(total - 1, current + 2);
 
-        // Ajoute des points de suspension si nécessaire
-        if (start > 2) {
-            pages.push('...');
-        }
+        if (start > 2) pages.push('...');
 
-        // Ajoute les pages de la plage
-        for (let i = start; i <= end; i++) {
-            pages.push(i);
-        }
+        for (let i = start; i <= end; i++) pages.push(i);
 
-        // Ajoute des points de suspension si nécessaire
-        if (end < total - 1) {
-            pages.push('...');
-        }
+        if (end < total - 1) pages.push('...');
 
-        // Affiche toujours la dernière page (si elle est différente de la première)
-        if (total > 1) {
-            pages.push(total);
-        }
-
+        if (total > 1) pages.push(total);
         return pages;
+    }
+
+    // Configuration de la grille selon le mode d'affichage
+    function getGridClasses() {
+        switch (viewMode) {
+            case 'compact':
+                return 'grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4';
+            case 'minimal':
+                return 'space-y-2';
+            case 'detailed':
+                return 'grid lg:grid-cols-2 gap-8';
+            default:
+                return 'grid md:grid-cols-2 lg:grid-cols-3 gap-6';
+        }
     }
 </script>
 
@@ -140,10 +134,9 @@
     <meta name="description" content="Découvrez tous les projets et startups incubés par JEB Incubator">
 </svelte:head>
 
-<div class="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-purple-100">
+<div class="min-h-screen bg-gray-50">
     <Header />
 
-    <!-- Affichage des erreurs -->
     {#if errorMessage}
         <ErrorMessage message={errorMessage} onRetry={retryLoad} />
     {/if}
@@ -152,21 +145,21 @@
     <section class="pt-24 pb-12 px-6 sm:px-8 lg:px-12">
         <div class="max-w-7xl mx-auto">
             <div class="text-center mb-12">
-                <h1 class="text-4xl lg:text-5xl font-bold text-gray-900 mb-4 font-['Montserrat']">
+                <h1 class="text-4xl lg:text-5xl font-bold text-gray-900 mb-4">
                     Nos Projets
                 </h1>
-                <p class="text-xl text-gray-600 max-w-3xl mx-auto font-['Open_Sans']">
+                <p class="text-xl text-gray-600 max-w-3xl mx-auto">
                     Explorez l'écosystème complet des startups incubées par JEB Incubator,
                     des projets en phase d'idéation aux entreprises en pleine croissance.
                 </p>
             </div>
 
             <!-- Filtres et recherche -->
-            <div class="bg-white rounded-2xl shadow-lg p-6 mb-8">
-                <div class="grid md:grid-cols-3 gap-4">
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+                <div class="grid md:grid-cols-4 gap-4 mb-6">
                     <!-- Recherche -->
                     <div>
-                        <label for="search" class="block text-sm font-semibold text-gray-700 mb-2">
+                        <label for="search" class="block text-sm font-medium text-gray-700 mb-2">
                             Rechercher
                         </label>
                         <input
@@ -174,39 +167,39 @@
                                 type="text"
                                 bind:value={searchInput}
                                 on:input={debounceSearch}
-                                placeholder="Nom, description, secteur..."
-                                class="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-[#c174f2] focus:ring-2 focus:ring-[#c174f2]/20 transition-colors duration-300"
+                                placeholder="Nom, description..."
+                                class="w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors duration-300"
                         />
                     </div>
 
                     <!-- Filtre par secteur -->
                     <div>
-                        <label for="sector" class="block text-sm font-semibold text-gray-700 mb-2">
+                        <label for="sector" class="block text-sm font-medium text-gray-700 mb-2">
                             Secteur
                         </label>
                         <select
                                 id="sector"
                                 bind:value={selectedSector}
                                 on:change={handleSectorChange}
-                                class="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-[#c174f2] focus:ring-2 focus:ring-[#c174f2]/20 transition-colors duration-300"
+                                class="w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors duration-300"
                         >
                             <option value="all">Tous les secteurs</option>
                             {#each availableSectors as sector}
-                                <option value={sector.name}>{sector.name} ({sector.count})</option>
+                                <option value={sector.name}>{sector.name} {sector.count ? `(${sector.count})` : ''}</option>
                             {/each}
                         </select>
                     </div>
 
                     <!-- Filtre par maturité -->
                     <div>
-                        <label for="maturity" class="block text-sm font-semibold text-gray-700 mb-2">
+                        <label for="maturity" class="block text-sm font-medium text-gray-700 mb-2">
                             Maturité
                         </label>
                         <select
                                 id="maturity"
                                 bind:value={selectedMaturity}
                                 on:change={handleMaturityChange}
-                                class="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-[#c174f2] focus:ring-2 focus:ring-[#c174f2]/20 transition-colors duration-300"
+                                class="w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors duration-300"
                         >
                             <option value="all">Toutes les phases</option>
                             <option value="Idéation">Idéation</option>
@@ -216,23 +209,40 @@
                             <option value="Scale-up">Scale-up</option>
                         </select>
                     </div>
+
+                    <!-- Sélecteur de vue -->
+                    <div>
+                        <label for="viewMode" class="block text-sm font-medium text-gray-700 mb-2">
+                            Affichage
+                        </label>
+                        <select
+                                id="viewMode"
+                                bind:value={viewMode}
+                                class="w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors duration-300"
+                        >
+                            <option value="default">Standard</option>
+                            <option value="compact">Compact</option>
+                            <option value="minimal">Minimal</option>
+                            <option value="detailed">Détaillé</option>
+                        </select>
+                    </div>
                 </div>
 
                 <!-- Statistiques rapides -->
-                <div class="mt-6 pt-6 border-t border-gray-200">
+                <div class="pt-4 border-t border-gray-200">
                     <div class="flex justify-between items-center text-sm text-gray-600">
-            <span>
-              {#if paginationInfo.total > 0}
-                Affichage de {((paginationInfo.page - 1) * paginationInfo.limit) + 1}
-                  à {Math.min(paginationInfo.page * paginationInfo.limit, paginationInfo.total)}
-                  sur {paginationInfo.total} projets
-              {:else}
-                Aucun projet trouvé
-              {/if}
-            </span>
                         <span>
-              Page {paginationInfo.page} sur {paginationInfo.totalPages}
-            </span>
+                            {#if (paginationInfo.total ?? 0) > 0}
+                                Affichage de {((paginationInfo.page - 1) * paginationInfo.limit) + 1}
+                                à {Math.min(paginationInfo.page * paginationInfo.limit, paginationInfo.total)}
+                                sur {paginationInfo.total} projets
+                            {:else}
+                                Aucun projet trouvé
+                            {/if}
+                        </span>
+                        <span>
+                            Page {paginationInfo.page} sur {paginationInfo.totalPages}
+                        </span>
                     </div>
                 </div>
             </div>
@@ -244,160 +254,91 @@
         <div class="max-w-7xl mx-auto">
             {#if isLoading}
                 <div class="flex justify-center py-12">
-                    <LoadingSpinner size="lg" color="#ff6b6b" />
+                    <LoadingSpinner size="lg" color="#6366f1" />
                 </div>
             {:else if startups.length === 0}
-                <div class="text-center py-12">
-
-                    <p class="text-gray-500 text-lg mb-4">
-                        {currentFilters.search || currentFilters.sector !== 'all'
-                            ? 'Aucun projet ne correspond à vos critères.'
-                            : 'Aucun projet disponible pour le moment.'}
-                    </p>
-                    <button
-                            on:click={() => {
-              startupsActions.resetFilters();
-              retryLoad();
-            }}
-                            class="bg-[#c174f2] text-white px-6 py-2 rounded-full hover:bg-[#cb90f1] transition-colors duration-300">
-                        {currentFilters.search || currentFilters.sector !== 'all' ? 'Réinitialiser les filtres' : 'Réessayer'}
-                    </button>
+                <div class="text-center py-12 bg-white rounded-lg border border-gray-200">
+                    <div class="max-w-md mx-auto">
+                        <div class="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                            <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 12h6m-6-4h6m2 5.291A7.962 7.962 0 0112 15c-2.34 0-4.383-1.005-5.824-2.618M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                            </svg>
+                        </div>
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">Aucun projet trouvé</h3>
+                        <p class="text-gray-500 mb-6">
+                            {currentFilters.search || currentFilters.sector !== 'all'
+                                ? 'Aucun projet ne correspond à vos critères de recherche.'
+                                : 'Aucun projet disponible pour le moment.'}
+                        </p>
+                        <button
+                                on:click={() => {
+                                startupsActions.resetFilters();
+                                retryLoad();
+                            }}
+                                class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition-colors duration-300">
+                            {currentFilters.search || currentFilters.sector !== 'all' ? 'Réinitialiser les filtres' : 'Réessayer'}
+                        </button>
+                    </div>
                 </div>
             {:else}
                 <!-- Grille des startups -->
-                <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
-                    {#each startups as startup}
-                        <div class="bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 overflow-hidden group cursor-pointer transform hover:-translate-y-2"
-                             on:click={() => navigateToStartup(startup.id)}>
-                            <div class="h-48 bg-gradient-to-r {getCategoryGradient(startup.sector)} relative overflow-hidden">
-                                <div class="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors duration-300"></div>
-                                <div class="absolute bottom-4 left-4 text-white">
-                                    <div class="text-sm font-semibold bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full">
-                                        {startup.sector}
-                                    </div>
-                                </div>
-                                <div class="absolute top-4 right-4">
-                                    <div class="text-xs font-medium bg-white/90 text-gray-700 px-2 py-1 rounded-full">
-                                        {startup.maturity}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="p-6">
-                                <h3 class="text-xl font-bold text-gray-900 mb-2 font-['Montserrat'] group-hover:text-[#c174f2] transition-colors duration-300">
-                                    {startup.name}
-                                </h3>
-                                <p class="text-gray-600 mb-4 font-['Open_Sans'] line-clamp-3">
-                                    {startup.description}
-                                </p>
-
-                                <!-- Fondateurs -->
-                                {#if startup.founders && startup.founders.length > 0}
-                                    <div class="flex items-center mb-4">
-                                        <span class="text-sm text-gray-500 font-semibold mr-3">Fondateurs:</span>
-                                        <div class="flex -space-x-2">
-                                            {#each startup.founders.slice(0, 3) as founder, i}
-                                                <div class="w-8 h-8 rounded-full bg-gradient-to-r from-[#c174f2] to-[#f18585] border-2 border-white transform group-hover:scale-110 transition-transform duration-300 flex items-center justify-center text-white text-xs font-bold"
-                                                     style="transition-delay: {i * 50}ms;"
-                                                     title="{founder.name}">
-                                                    {founder.name.charAt(0).toUpperCase()}
-                                                </div>
-                                            {/each}
-                                            {#if startup.founders.length > 3}
-                                                <div class="w-8 h-8 rounded-full bg-gray-300 border-2 border-white transform group-hover:scale-110 transition-transform duration-300 flex items-center justify-center text-gray-600 text-xs font-bold"
-                                                     title="+{startup.founders.length - 3} autres">
-                                                    +{startup.founders.length - 3}
-                                                </div>
-                                            {/if}
-                                        </div>
-                                    </div>
-                                {/if}
-
-                                <!-- Informations supplémentaires -->
-                                <div class="space-y-2 text-sm text-gray-500">
-                                    {#if startup.project_status}
-                                        <div><span class="font-semibold">Statut :</span> {startup.project_status}</div>
-                                    {/if}
-                                    {#if startup.needs}
-                                        <div><span class="font-semibold">Besoins :</span> {startup.needs}</div>
-                                    {/if}
-                                    {#if startup.website_url}
-                                        <div>
-                                            <a href="{startup.website_url}"
-                                               target="_blank"
-                                               rel="noopener noreferrer"
-                                               on:click|stopPropagation
-                                               class="text-[#c174f2] hover:text-[#f18585] transition-colors duration-300 font-semibold">
-                                                Visiter le site →
-                                            </a>
-                                        </div>
-                                    {/if}
-                                    <div class="text-xs text-gray-400 mt-2">
-                                        Créé le {new Date(startup.created_at).toLocaleDateString('fr-FR')}
-                                    </div>
-                                </div>
-
-                                <!-- Tags additionnels -->
-                                {#if startup.tags && startup.tags.length > 0}
-                                    <div class="flex flex-wrap gap-2 mt-3">
-                                        {#each startup.tags.slice(0, 3) as tag}
-                      <span class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full group-hover:bg-[#c174f2] group-hover:text-white transition-colors duration-300">
-                        {tag}
-                      </span>
-                                        {/each}
-                                    </div>
-                                {/if}
-                            </div>
-                        </div>
+                <div class="{getGridClasses()} mb-12">
+                    {#each startups as startup, index}
+                        <StartupCard
+                                {startup}
+                                {index}
+                                {isVisible}
+                                variant={viewMode}
+                                on:cardClick={handleCardClick}
+                                on:websiteClick={handleWebsiteClick}
+                        />
                     {/each}
                 </div>
 
                 <!-- Pagination -->
-                {#if paginationInfo.totalPages > 1}
-                    <div class="flex justify-center items-center space-x-2 mt-12">
-                        <!-- Bouton Précédent -->
-                        <button
-                                on:click={() => handlePageChange(paginationInfo.page - 1)}
-                                disabled={paginationInfo.page === 1}
-                                class="px-4 py-2 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-300">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-                            </svg>
-                        </button>
+                {#if (paginationInfo.totalPages ?? 1) > 1}
+                    <div class="bg-white rounded-lg border border-gray-200 p-6">
+                        <div class="flex justify-center items-center space-x-2 mb-4">
+                            <button
+                                    on:click={() => handlePageChange(paginationInfo.page - 1)}
+                                    disabled={paginationInfo.page === 1}
+                                    class="px-4 py-2 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-300">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                                </svg>
+                            </button>
 
-                        <!-- Numéros de page -->
-                        {#each generatePageNumbers() as pageNumber}
-                            {#if pageNumber === '...'}
-                                <span class="px-4 py-2 text-gray-400">...</span>
-                            {:else}
-                                <button
-                                        on:click={() => handlePageChange(pageNumber)}
-                                        class="px-4 py-2 rounded-lg border transition-colors duration-300 {
-                    pageNumber === paginationInfo.page
-                      ? 'bg-[#c174f2] text-white border-[#c174f2]'
-                      : 'border-gray-300 text-gray-600 hover:bg-gray-50'
-                  }">
-                                    {pageNumber}
-                                </button>
-                            {/if}
-                        {/each}
+                            {#each generatePageNumbers() as pageNumber}
+                                {#if pageNumber === '...'}
+                                    <span class="px-4 py-2 text-gray-400">...</span>
+                                {:else}
+                                    <button
+                                            on:click={() => handlePageChange(pageNumber)}
+                                            class="px-4 py-2 rounded-lg border transition-colors duration-300 {
+                                            pageNumber === paginationInfo.page
+                                                ? 'bg-indigo-600 text-white border-indigo-600'
+                                                : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+                                        }">
+                                        {pageNumber}
+                                    </button>
+                                {/if}
+                            {/each}
 
-                        <!-- Bouton Suivant -->
-                        <button
-                                on:click={() => handlePageChange(paginationInfo.page + 1)}
-                                disabled={paginationInfo.page === paginationInfo.totalPages}
-                                class="px-4 py-2 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-300">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                            </svg>
-                        </button>
-                    </div>
+                            <button
+                                    on:click={() => handlePageChange(paginationInfo.page + 1)}
+                                    disabled={paginationInfo.page === paginationInfo.totalPages}
+                                    class="px-4 py-2 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-300">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                </svg>
+                            </button>
+                        </div>
 
-                    <!-- Informations de pagination -->
-                    <div class="text-center mt-4 text-sm text-gray-600">
-                        Affichage de {((paginationInfo.page - 1) * paginationInfo.limit) + 1}
-                        à {Math.min(paginationInfo.page * paginationInfo.limit, paginationInfo.total)}
-                        sur {paginationInfo.total} projets
+                        <div class="text-center text-sm text-gray-600 border-t border-gray-200 pt-4">
+                            Affichage de {((paginationInfo.page - 1) * paginationInfo.limit) + 1}
+                            à {Math.min(paginationInfo.page * paginationInfo.limit, paginationInfo.total)}
+                            sur {paginationInfo.total} projets
+                        </div>
                     </div>
                 {/if}
             {/if}
@@ -437,11 +378,13 @@
 
     /* Responsive pour mobile */
     @media (max-width: 640px) {
-        .grid.md\\:grid-cols-2.lg\\:grid-cols-3 {
+        .grid.md\:grid-cols-2.lg\:grid-cols-3 {
             grid-template-columns: 1fr;
         }
-
-        .grid.md\\:grid-cols-3 {
+        .grid.md\:grid-cols-3 {
+            grid-template-columns: 1fr;
+        }
+        .grid.md\:grid-cols-4 {
             grid-template-columns: 1fr;
         }
     }

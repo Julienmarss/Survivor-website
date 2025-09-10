@@ -1,5 +1,5 @@
 // frontend/src/lib/services/authApi.js - Version corrigée
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const API_BASE_URL = `${import.meta.env.PUBLIC_APIURL || 'http://localhost:3000'}/api`;
 
 class AuthApiService {
     constructor() {

@@ -87,13 +87,13 @@
             goto('/admin');
             break;
           case 'startup':
-            goto('/dashboard');
+            goto('/');
             break;
           case 'investor':
-            goto('/dashboard');
+            goto('/');
             break;
           default:
-            goto('/dashboard');
+            goto('/');
         }
       } else {
         errors.submit = result.error || 'Email ou mot de passe incorrect.';

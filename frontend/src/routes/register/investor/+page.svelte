@@ -5,6 +5,7 @@
   import Header from '../../../lib/components/Header.svelte';
   import Footer from '../../../lib/components/Footer.svelte';
   import LoadingSpinner from '../../../lib/components/LoadingSpinner.svelte';
+  import { userStore } from '../../../lib/stores/userStore.js';
 
   let formData = {
     // Informations personnelles
@@ -187,16 +188,24 @@
     if (!validateStep(currentStep)) return;
 
     isSubmitting = true;
+    errors = {}; // Reset errors
 
     try {
-      // Ici tu ajouteras l'appel à ton API backend
       console.log('Données du formulaire investisseur:', formData);
       
-      // Simulation d'un appel API
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // ✅ CORRECTION : Appel du vrai backend via userStore
+      const result = await userStore.registerInvestor(formData);
       
-      // TODO: Intégrer backend + userStore + redirection vers dashboard
-      goto('/login?registered=true&type=investor');
+      if (result.success) {
+        console.log('Investor registration successful:', result.user);
+        
+        // Redirection vers login avec message de succès
+        goto('/login?registered=true&type=investor');
+      } else {
+        // Gestion des erreurs spécifiques
+        console.error('Investor registration failed:', result.error);
+        errors.submit = result.error || 'Une erreur est survenue lors de l\'inscription.';
+      }
     } catch (error) {
       console.error('Erreur lors de l\'inscription:', error);
       errors.submit = 'Une erreur est survenue. Veuillez réessayer.';

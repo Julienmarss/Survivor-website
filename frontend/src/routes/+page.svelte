@@ -5,6 +5,7 @@
   import Footer from '../lib/components/Footer.svelte';
   import LoadingSpinner from '../lib/components/LoadingSpinner.svelte';
   import ErrorMessage from '../lib/components/ErrorMessage.svelte';
+  import StartupCard from '../lib/components/StartupCard.svelte';
 
   // Import des stores mis à jour
   import {
@@ -41,47 +42,6 @@
   $: isLoading = $loading;
   $: errorMessage = $error;
 
-  // Fonctions utilitaires pour les catégories
-  function getCategoryGradient(category) {
-    const gradients = {
-      'GreenTech': 'from-green-400 to-emerald-600',
-      'HealthTech': 'from-blue-400 to-cyan-600',
-      'FinTech': 'from-purple-400 to-indigo-600',
-      'AgriTech': 'from-yellow-400 to-orange-600',
-      'EdTech': 'from-pink-400 to-rose-600',
-      'CyberSecurity': 'from-red-400 to-pink-600',
-      'Tech': 'from-blue-400 to-purple-600',
-      'Santé': 'from-blue-400 to-cyan-600',
-      'Finance': 'from-purple-400 to-indigo-600',
-      'Agriculture': 'from-yellow-400 to-orange-600',
-      'Éducation': 'from-pink-400 to-rose-600',
-      'Environnement': 'from-green-400 to-emerald-600',
-      'Technologie': 'from-blue-400 to-purple-600',
-      'default': 'from-gray-400 to-gray-600'
-    };
-    return gradients[category] || gradients.default;
-  }
-
-  function getCategoryColor(category) {
-    const colors = {
-      'GreenTech': 'text-green-600',
-      'HealthTech': 'text-blue-600',
-      'FinTech': 'text-purple-600',
-      'AgriTech': 'text-orange-600',
-      'EdTech': 'text-pink-600',
-      'CyberSecurity': 'text-red-600',
-      'Tech': 'text-blue-600',
-      'Santé': 'text-blue-600',
-      'Finance': 'text-purple-600',
-      'Agriculture': 'text-orange-600',
-      'Éducation': 'text-pink-600',
-      'Environnement': 'text-green-600',
-      'Technologie': 'text-blue-600',
-      'default': 'text-gray-600'
-    };
-    return colors[category] || colors.default;
-  }
-
   function animateCounter(key, target, duration = 2000) {
     const start = performance.now();
     const startValue = animatedStats[key];
@@ -108,7 +68,6 @@
           heroVisible = true;
         } else if (entry.target === statsRef) {
           statsVisible = true;
-          // Démarrer les animations des compteurs avec les vraies données de l'API
           setTimeout(() => {
             animateCounter('startups', realStats.startups);
             animateCounter('funds', realStats.funds);
@@ -147,7 +106,6 @@
     if (projectsRef) observer.observe(projectsRef);
     if (servicesRef) observer.observe(servicesRef);
 
-    // Animation initiale du hero
     setTimeout(() => {
       heroVisible = true;
     }, 100);
@@ -164,24 +122,26 @@
     window.addEventListener('scroll', handleScroll);
   }
 
-  // Fonction pour naviguer vers la page des projets
   function navigateToProjects() {
     goto('/projects');
   }
 
-  // Fonction pour naviguer vers une startup spécifique
-  function navigateToStartup(startupId) {
-    goto(`/startup/${startupId}`);
-  }
-
-  // Fonction pour retenter le chargement en cas d'erreur
   function retryLoad() {
     startupsActions.clearError();
     startupsActions.loadFeatured(6);
     startupsActions.loadStats();
   }
 
+  // Gestionnaires d'événements pour les cartes
+  function handleStartupCardClick(event) {
+    const startup = event.detail;
+    goto(`/startup/${startup.id}`);
+  }
 
+  function handleWebsiteClick(event) {
+    const { url } = event.detail;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
 </script>
 
 <svelte:window bind:scrollY />
@@ -273,7 +233,7 @@
     </div>
   </section>
 
-  <!-- Projets en Vedette -->
+  <!-- Projets en Vedette avec le nouveau composant -->
   <section bind:this={projectsRef} class="py-20 px-6 sm:px-8 lg:px-12">
     <div class="max-w-7xl mx-auto">
       <div class="text-center mb-16 transform transition-all duration-1000 {projectsVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}">
@@ -299,65 +259,14 @@
       {:else}
         <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
           {#each startupsList as startup, index}
-            <div class="bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 overflow-hidden group transform {projectsVisible ? 'translate-y-0 opacity-100' : 'translate-y-12 opacity-0'} cursor-pointer"
-                 style="transition-delay: {(index + 1) * 200}ms;"
-                 on:click={() => navigateToStartup(startup.id)}>
-              <div class="h-48 bg-gradient-to-r {startup.gradient || getCategoryGradient(startup.category)} relative overflow-hidden">
-                <div class="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors duration-300"></div>
-                <div class="absolute bottom-4 left-4 text-white transform group-hover:translate-x-1 transition-transform duration-300">
-                  <div class="text-sm font-semibold bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full">{startup.sector}</div>
-                </div>
-                <div class="absolute inset-0 bg-gradient-to-t from-transparent to-white/10 transform scale-0 group-hover:scale-100 transition-transform duration-500 origin-top-left"></div>
-              </div>
-              <div class="p-6 transform group-hover:translate-y-[-2px] transition-transform duration-300">
-                <h3 class="text-xl font-bold text-gray-900 mb-2 font-['Montserrat'] group-hover:{getCategoryColor(startup.category)} transition-colors duration-300">{startup.name}</h3>
-                <p class="text-gray-600 mb-4 font-['Open_Sans'] line-clamp-3">
-                  {startup.description}
-                </p>
-                <div class="flex items-center justify-between mb-3">
-                  <div class="flex -space-x-2">
-                    {#each (startup.founders || []).slice(0, 3) as founder, i}
-                      <div class="w-8 h-8 rounded-full bg-gradient-to-r from-[#c174f2] to-[#f18585] border-2 border-white transform group-hover:scale-110 transition-transform duration-300 flex items-center justify-center text-white text-xs font-bold"
-                           style="transition-delay: {i * 50}ms;"
-                           title="{founder.name}">
-                        {founder.name.charAt(0).toUpperCase()}
-                      </div>
-                    {/each}
-                    {#if (startup.founders || []).length > 3}
-                      <div class="w-8 h-8 rounded-full bg-gray-300 border-2 border-white transform group-hover:scale-110 transition-transform duration-300 flex items-center justify-center text-gray-600 text-xs font-bold"
-                           title="+{startup.founders.length - 3} autres">
-                        +{startup.founders.length - 3}
-                      </div>
-                    {/if}
-                  </div>
-                  <span class="text-sm text-gray-500 font-['Open_Sans'] bg-gray-100 px-3 py-1 rounded-full group-hover:bg-gradient-to-r group-hover:from-[#c174f2] group-hover:to-[#f18585] group-hover:text-white transition-all duration-300">{startup.maturity}</span>
-                </div>
-
-                <!-- Informations de la base de données -->
-                <div class="space-y-2 text-sm text-gray-500">
-                  {#if startup.project_status}
-                    <div><span class="font-semibold">Statut :</span> {startup.project_status}</div>
-                  {/if}
-                  {#if startup.needs}
-                    <div><span class="font-semibold">Besoins :</span> {startup.needs}</div>
-                  {/if}
-                  {#if startup.website_url}
-                    <div>
-                      <a href="{startup.website_url}"
-                         target="_blank"
-                         rel="noopener noreferrer"
-                         on:click|stopPropagation
-                         class="text-[#c174f2] hover:text-[#f18585] transition-colors duration-300 font-semibold">
-                        Visiter le site →
-                      </a>
-                    </div>
-                  {/if}
-                  <div class="text-xs text-gray-400 mt-2">
-                    Créé le {new Date(startup.created_at).toLocaleDateString('fr-FR')}
-                  </div>
-                </div>
-              </div>
-            </div>
+            <StartupCard
+                    {startup}
+                    {index}
+                    isVisible={projectsVisible}
+                    variant="default"
+                    on:cardClick={handleStartupCardClick}
+                    on:websiteClick={handleWebsiteClick}
+            />
           {/each}
         </div>
 
@@ -452,24 +361,6 @@
 
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&family=Open+Sans:wght@400;500;600&display=swap');
-
-  .line-clamp-3 {
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-
-  @keyframes fadeInUp {
-    from {
-      opacity: 0;
-      transform: translateY(30px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
 
   html {
     scroll-behavior: smooth;

@@ -10,6 +10,9 @@ import { AnalyticsModule } from './modules/analystics/analytics.module';
 import { ExportModule } from './modules/export/export.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { HealthModule } from './modules/health/health.module';
+import { EventsModule } from './modules/events/events.module';
+import { NewsModule } from './modules/news/news.module';
+import { MessagingModule } from './modules/messaging/messaging.module';
 
 @Module({
   imports: [
@@ -26,6 +29,9 @@ import { HealthModule } from './modules/health/health.module';
     ExportModule,
     DashboardModule,
     HealthModule,
+    NewsModule,
+    EventsModule,
+    MessagingModule,
   ],
   controllers: [AppController],
 })

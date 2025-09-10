@@ -138,23 +138,28 @@ const userStore = {
     /**
      * Inscrire une startup
      */
-    async registerStartup(startupData) {
-        try {
-            const response = await authApi.registerStartup(startupData);
+async registerStartup(startupData) {
+  try {
+    console.log('🚀 UserStore: Starting startup registration...');
+    console.log('📝 UserStore: Data to send:', startupData);
+    
+    const response = await authApi.registerStartup(startupData);
+    console.log('📡 UserStore: API Response:', response);
 
-            if (response.success && response.data.user && response.data.accessToken) {
-                storage.saveUser(response.data.user);
-                set(response.data.user);
-                console.log('Startup inscrite:', response.data.user);
-                return { success: true, user: response.data.user };
-            } else {
-                return { success: false, error: response.message || 'Registration failed' };
-            }
-        } catch (error) {
-            console.error('Erreur lors de l\'inscription startup:', error);
-            return { success: false, error: error.message || 'Registration failed' };
-        }
-    },
+    if (response.success && response.data.user && response.data.accessToken) {
+      storage.saveUser(response.data.user);
+      set(response.data.user);
+      console.log('✅ UserStore: Startup registration successful');
+      return { success: true, user: response.data.user };
+    } else {
+      console.error('❌ UserStore: Registration failed - Invalid response:', response);
+      return { success: false, error: response.message || 'Registration failed' };
+    }
+  } catch (error) {
+    console.error('💥 UserStore: Registration error:', error);
+    return { success: false, error: error.message || 'Registration failed' };
+  }
+},
 
     /**
      * Inscrire un investisseur
