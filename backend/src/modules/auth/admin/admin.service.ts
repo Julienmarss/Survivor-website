@@ -1,7 +1,7 @@
 import { Injectable, Logger, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { UserRepository } from '../repositories/user.repository';
 import { IUser, UserRole } from '../interfaces/user.interface';
-import { CreateUserDto, UpdateUserDto, UserSearchDto } from './dto/admin.dto';
+import { CreateUserDto, UpdateUserDto } from './dto/admin.dto';
 import * as bcrypt from 'bcrypt';
 
 interface PaginationParams {
@@ -23,6 +23,29 @@ interface UserActivity {
   timestamp: Date;
 }
 
+interface UserStats {
+  total: number;
+  byRole: {
+    admin: number;
+    startup: number;
+    investor: number;
+    user: number;
+  };
+  newThisMonth: number;
+  newThisWeek: number;
+  activeThisMonth: number;
+  emailVerified: number;
+  topSectors: Array<{ sector: string; count: number }>;
+  recentRegistrations: Array<{
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    role: UserRole;
+    createdAt: Date;
+  }>;
+}
+
 @Injectable()
 export class AdminService {
   private readonly logger = new Logger(AdminService.name);
@@ -38,142 +61,12 @@ export class AdminService {
     try {
       this.logger.log(`Getting users with params: ${JSON.stringify(params)}`);
       
-      // Start with base query
-      let users = await this.userRepository.getAllUsers(1000); // Get more to filter
-      let filteredUsers = users.users;
+      // Get all users first
+      const allUsersResult = await this.userRepository.getAllUsers(1000);
+      let filteredUsers = allUsersResult.users;
 
       // Apply search filter
-      if (filters.search) {
-        const searchTerm = filters.search.toLowerCase();
-        users = users.filter(user => 
-          user.email?.toLowerCase().includes(searchTerm) ||
-          user.firstName?.toLowerCase().includes(searchTerm) ||
-          user.lastName?.toLowerCase().includes(searchTerm) ||
-          user.companyName?.toLowerCase().includes(searchTerm)
-        );
-      }
-
-      // Generate CSV headers
-      const headers = [
-        'ID', 'Email', 'First Name', 'Last Name', 'Role', 'Company Name', 
-        'Sector', 'Phone', 'Created At', 'Last Login', 'Email Verified'
-      ];
-
-      // Generate CSV rows
-      const rows = users.map(user => [
-        user.id || '',
-        user.email || '',
-        user.firstName || '',
-        user.lastName || '',
-        user.role || '',
-        user.companyName || '',
-        user.sector || '',
-        user.phone || '',
-        user.createdAt ? user.createdAt.toISOString() : '',
-        user.lastLoginAt ? user.lastLoginAt.toISOString() : '',
-        user.isEmailVerified ? 'Yes' : 'No'
-      ]);
-
-      // Combine headers and rows
-      const csvContent = [headers, ...rows]
-        .map(row => row.map(field => `"${field}"`).join(','))
-        .join('\n');
-
-      return csvContent;
-    } catch (error) {
-      this.logger.error('Error exporting users to CSV:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Helper: Filter data by user role
-   */
-  private filterDataByRole(data: any, role: UserRole): any {
-    const baseFields = ['firstName', 'lastName', 'email', 'phone'];
-    
-    switch (role) {
-      case UserRole.STARTUP:
-        return this.pickFields(data, [
-          ...baseFields, 
-          'companyName', 'sector', 'description', 'maturity', 
-          'projectStatus', 'needs', 'websiteUrl', 'linkedinUrl',
-          'teamSize', 'foundingDate', 'legalStatus', 'address'
-        ]);
-      
-      case UserRole.INVESTOR:
-        return this.pickFields(data, [
-          ...baseFields,
-          'investorType', 'investmentRange', 'preferredSectors',
-          'preferredStages', 'portfolioSize', 'investmentExperience',
-          'investmentCriteria', 'geographicalPreferences', 'linkedinUrl'
-        ]);
-      
-      case UserRole.USER:
-        return this.pickFields(data, [
-          ...baseFields,
-          'age', 'gender', 'school', 'level', 'field'
-        ]);
-      
-      case UserRole.ADMIN:
-        return this.pickFields(data, baseFields);
-      
-      default:
-        return this.pickFields(data, baseFields);
-    }
-  }
-
-  /**
-   * Helper: Pick specific fields from object
-   */
-  private pickFields(obj: any, fields: string[]): any {
-    const result: any = {};
-    fields.forEach(field => {
-      if (obj[field] !== undefined) {
-        result[field] = obj[field];
-      }
-    });
-    return result;
-  }
-
-  /**
-   * Helper: Get top sectors from users
-   */
-  private getTopSectors(users: IUser[]): Array<{ sector: string; count: number }> {
-    const sectorCounts: Record<string, number> = {};
-    
-    users.forEach(user => {
-      if (user.sector) {
-        sectorCounts[user.sector] = (sectorCounts[user.sector] || 0) + 1;
-      }
-    });
-
-    return Object.entries(sectorCounts)
-      .map(([sector, count]) => ({ sector, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
-  }
-
-  /**
-   * Helper: Log activity (placeholder - implement according to your needs)
-   */
-  private async logActivity(
-    userId: string, 
-    action: string, 
-    details: any, 
-    adminId?: string
-  ) {
-    // This is a placeholder for activity logging
-    // You might want to implement this with a separate table/collection
-    this.logger.log(`Activity logged: ${action} for user ${userId} by admin ${adminId}`, {
-      userId,
-      action,
-      details,
-      adminId,
-      timestamp: new Date()
-    });
-  }
-}params.search) {
+      if (params.search) {
         const searchTerm = params.search.toLowerCase();
         filteredUsers = filteredUsers.filter(user => 
           user.email?.toLowerCase().includes(searchTerm) ||
@@ -193,11 +86,14 @@ export class AdminService {
       const sortOrder = params.sortOrder || 'desc';
       
       filteredUsers.sort((a, b) => {
-        let aValue = a[sortBy];
-        let bValue = b[sortBy];
+        let aValue = a[sortBy as keyof IUser];
+        let bValue = b[sortBy as keyof IUser];
         
         if (aValue instanceof Date) aValue = aValue.getTime();
         if (bValue instanceof Date) bValue = bValue.getTime();
+        
+        if (typeof aValue === 'string') aValue = aValue.toLowerCase();
+        if (typeof bValue === 'string') bValue = bValue.toLowerCase();
         
         if (sortOrder === 'asc') {
           return aValue > bValue ? 1 : -1;
@@ -235,7 +131,7 @@ export class AdminService {
   /**
    * Get user statistics
    */
-  async getUserStats() {
+  async getUserStats(): Promise<UserStats> {
     try {
       const allUsers = await this.userRepository.getAllUsers(10000);
       const users = allUsers.users;
@@ -244,7 +140,7 @@ export class AdminService {
       const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
       const lastWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-      const stats = {
+      const stats: UserStats = {
         total: users.length,
         byRole: {
           admin: users.filter(u => u.role === UserRole.ADMIN).length,
@@ -262,10 +158,10 @@ export class AdminService {
           .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
           .slice(0, 5)
           .map(u => ({
-            id: u.id,
+            id: u.id!,
             email: u.email,
-            firstName: u.firstName,
-            lastName: u.lastName,
+            firstName: u.firstName || '',
+            lastName: u.lastName || '',
             role: u.role,
             createdAt: u.createdAt
           }))
@@ -437,7 +333,6 @@ export class AdminService {
       }
 
       // For now, we'll use a custom field to track active status
-      // You might want to add an 'isActive' field to your user interface
       const currentStatus = (user as any).isActive !== false; // Default to true if not set
       const newStatus = !currentStatus;
 
@@ -576,8 +471,6 @@ export class AdminService {
               await this.updateUserRole(userId, params.role, adminId, params.reason);
               break;
             case 'activate':
-              await this.toggleUserStatus(userId, adminId, params?.reason);
-              break;
             case 'deactivate':
               await this.toggleUserStatus(userId, adminId, params?.reason);
               break;
@@ -616,4 +509,134 @@ export class AdminService {
         users = users.filter(user => user.role === filters.role);
       }
 
-      if (
+      if (filters.search) {
+        const searchTerm = filters.search.toLowerCase();
+        users = users.filter(user => 
+          user.email?.toLowerCase().includes(searchTerm) ||
+          user.firstName?.toLowerCase().includes(searchTerm) ||
+          user.lastName?.toLowerCase().includes(searchTerm) ||
+          user.companyName?.toLowerCase().includes(searchTerm)
+        );
+      }
+
+      // Generate CSV headers
+      const headers = [
+        'ID', 'Email', 'First Name', 'Last Name', 'Role', 'Company Name', 
+        'Sector', 'Phone', 'Created At', 'Last Login', 'Email Verified'
+      ];
+
+      // Generate CSV rows
+      const rows = users.map(user => [
+        user.id || '',
+        user.email || '',
+        user.firstName || '',
+        user.lastName || '',
+        user.role || '',
+        user.companyName || '',
+        user.sector || '',
+        user.phone || '',
+        user.createdAt ? user.createdAt.toISOString() : '',
+        user.lastLoginAt ? user.lastLoginAt.toISOString() : '',
+        user.isEmailVerified ? 'Yes' : 'No'
+      ]);
+
+      // Combine headers and rows
+      const csvContent = [headers, ...rows]
+        .map(row => row.map(field => `"${field}"`).join(','))
+        .join('\n');
+
+      return csvContent;
+    } catch (error) {
+      this.logger.error('Error exporting users to CSV:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Helper: Filter data by user role
+   */
+  private filterDataByRole(data: any, role: UserRole): any {
+    const baseFields = ['firstName', 'lastName', 'email', 'phone'];
+    
+    switch (role) {
+      case UserRole.STARTUP:
+        return this.pickFields(data, [
+          ...baseFields, 
+          'companyName', 'sector', 'description', 'maturity', 
+          'projectStatus', 'needs', 'websiteUrl', 'linkedinUrl',
+          'teamSize', 'foundingDate', 'legalStatus', 'address'
+        ]);
+      
+      case UserRole.INVESTOR:
+        return this.pickFields(data, [
+          ...baseFields,
+          'investorType', 'investmentRange', 'preferredSectors',
+          'preferredStages', 'portfolioSize', 'investmentExperience',
+          'investmentCriteria', 'geographicalPreferences', 'linkedinUrl'
+        ]);
+      
+      case UserRole.USER:
+        return this.pickFields(data, [
+          ...baseFields,
+          'age', 'gender', 'school', 'level', 'field'
+        ]);
+      
+      case UserRole.ADMIN:
+        return this.pickFields(data, baseFields);
+      
+      default:
+        return this.pickFields(data, baseFields);
+    }
+  }
+
+  /**
+   * Helper: Pick specific fields from object
+   */
+  private pickFields(obj: any, fields: string[]): any {
+    const result: any = {};
+    fields.forEach(field => {
+      if (obj[field] !== undefined) {
+        result[field] = obj[field];
+      }
+    });
+    return result;
+  }
+
+  /**
+   * Helper: Get top sectors from users
+   */
+  private getTopSectors(users: IUser[]): Array<{ sector: string; count: number }> {
+    const sectorCounts: Record<string, number> = {};
+    
+    users.forEach(user => {
+      if (user.sector) {
+        sectorCounts[user.sector] = (sectorCounts[user.sector] || 0) + 1;
+      }
+    });
+
+    return Object.entries(sectorCounts)
+      .map(([sector, count]) => ({ sector, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+  }
+
+  /**
+   * Helper: Log activity (placeholder - implement according to your needs)
+   */
+  private async logActivity(
+    userId: string, 
+    action: string, 
+    details: any, 
+    adminId?: string
+  ) {
+    // This is a placeholder for activity logging
+    // You might want to implement this with a separate table/collection
+    this.logger.log(`Activity logged: ${action} for user ${userId} by admin ${adminId}`, {
+      userId,
+      action,
+      details,
+      adminId,
+      timestamp: new Date()
+    });
+  }
+}

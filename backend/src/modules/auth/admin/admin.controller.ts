@@ -27,6 +27,50 @@ import {
   UserSearchDto
 } from './dto/admin.dto';
 
+// Déplacer les interfaces dans le controller pour éviter les problèmes d'export
+interface UserStats {
+  total: number;
+  byRole: {
+    admin: number;
+    startup: number;
+    investor: number;
+    user: number;
+  };
+  newThisMonth: number;
+  newThisWeek: number;
+  activeThisMonth: number;
+  emailVerified: number;
+  topSectors: Array<{ sector: string; count: number }>;
+  recentRegistrations: Array<{
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    role: UserRole;
+    createdAt: Date;
+  }>;
+}
+
+interface UserActivity {
+  id: string;
+  userId: string;
+  action: string;
+  details: any;
+  adminId?: string;
+  adminEmail?: string;
+  timestamp: Date;
+}
+
+interface PaginatedUserActivity {
+  activities: UserActivity[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
 @ApiTags('Admin - User Management')
 @Controller('admin/users')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -79,7 +123,7 @@ export class AdminController {
   @Get('stats')
   @ApiOperation({ summary: 'Get user statistics' })
   @ApiResponse({ status: 200, description: 'User statistics retrieved successfully' })
-  async getUserStats() {
+  async getUserStats(): Promise<any> {
     try {
       const stats = await this.adminService.getUserStats();
       return ApiResponseDto.success('User statistics retrieved successfully', stats);
@@ -251,7 +295,7 @@ export class AdminController {
     @Param('id') id: string,
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 50
-  ) {
+  ): Promise<any> {
     try {
       const activity = await this.adminService.getUserActivity(id, {
         page: Number(page),
@@ -318,9 +362,9 @@ export class AdminController {
   @ApiOperation({ summary: 'Export users to CSV' })
   @ApiResponse({ status: 200, description: 'CSV export generated successfully' })
   async exportUsersCSV(
+    @Request() req,
     @Query('role') role?: UserRole,
-    @Query('search') search?: string,
-    @Request() req
+    @Query('search') search?: string
   ) {
     try {
       this.logger.log(`Admin ${req.user.email} exporting users to CSV`);
@@ -342,5 +386,38 @@ export class AdminController {
         error.status || HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
+  }
+
+  // Debug endpoint pour tester la connexion
+  @Get('debug/test')
+  @ApiOperation({ summary: 'Test admin endpoint' })
+  async debugTest(@Request() req) {
+    try {
+      this.logger.log(`🔧 Debug test called by: ${req.user?.email || 'unknown'}`);
+      return ApiResponseDto.success('Admin endpoint is working', {
+        user: req.user,
+        timestamp: new Date().toISOString(),
+        message: 'Admin controller is connected and working'
+      });
+    } catch (error) {
+      this.logger.error('Debug test failed:', error);
+      throw new HttpException(
+        'Debug test failed',
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  // Test endpoint SANS authentification
+  @Get('test-no-auth')
+  @ApiOperation({ summary: 'Test endpoint without auth' })
+  async testNoAuth() {
+    this.logger.log('🔧 Test no-auth endpoint called');
+    return { 
+      success: true, 
+      message: 'Endpoint accessible without auth', 
+      timestamp: new Date(),
+      path: 'admin/users/test-no-auth'
+    };
   }
 }

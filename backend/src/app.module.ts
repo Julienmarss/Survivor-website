@@ -13,6 +13,7 @@ import { HealthModule } from './modules/health/health.module';
 import { EventsModule } from './modules/events/events.module';
 import { NewsModule } from './modules/news/news.module';
 import { MessagingModule } from './modules/messaging/messaging.module';
+import { AdminModule } from './modules/auth/admin/admin.module';
 
 @Module({
   imports: [
@@ -25,13 +26,14 @@ import { MessagingModule } from './modules/messaging/messaging.module';
     JebApiModule,
     StartupsModule,
     AuthModule,
+    AdminModule,
     AnalyticsModule,
     ExportModule,
     DashboardModule,
     HealthModule,
     NewsModule,
     EventsModule,
-    MessagingModule,
+    MessagingModule
   ],
   controllers: [AppController],
 })
