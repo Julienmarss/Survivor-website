@@ -1,4 +1,3 @@
-// backend/src/modules/news/news.module.ts
 import { Module } from '@nestjs/common';
 import { NewsController } from './news.controller';
 import { NewsService } from './news.service';
@@ -13,7 +12,7 @@ import { JebApiModule } from '../jeb-api/jeb-api.module';
   providers: [
     NewsService, 
     NewsRepository, 
-    NewsSyncService, // Service de synchronisation
+    NewsSyncService,
   ],
   exports: [NewsService, NewsRepository, NewsSyncService],
 })

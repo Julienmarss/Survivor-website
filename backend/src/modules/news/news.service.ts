@@ -1,4 +1,3 @@
-// backend/src/modules/news/news.service.ts
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { NewsRepository } from './repositories/news.repository';
 import { IJebNews } from './interfaces/news.interface';
@@ -11,7 +10,6 @@ export class NewsService {
     private readonly newsRepo: NewsRepository,
   ) {}
 
-  // CRUD Operations avec gestion d'erreurs améliorée
   async findAll(): Promise<Array<IJebNews & { firebaseId?: string }>> {
     try {
       this.logger.log('Fetching all news');
@@ -45,7 +43,6 @@ export class NewsService {
     try {
       this.logger.log('Creating news', { title: news.title, category: news.category });
       
-      // Validation des champs obligatoires
       if (!news.title) {
         throw new Error('Title is required');
       }
@@ -56,7 +53,6 @@ export class NewsService {
         throw new Error('Location is required');
       }
 
-      // Préparation des données avec valeurs par défaut
       const newsData: Partial<IJebNews> = {
         ...news,
         source: news.source || 'local',
@@ -83,7 +79,6 @@ export class NewsService {
         throw new NotFoundException('News ID is required');
       }
 
-      // Vérifier que la news existe avant la mise à jour
       await this.findById(firebaseId);
 
       const result = await this.newsRepo.update(firebaseId, news);
@@ -103,7 +98,6 @@ export class NewsService {
         throw new NotFoundException('News ID is required');
       }
 
-      // Vérifier que la news existe avant la suppression
       await this.findById(firebaseId);
 
       const result = await this.newsRepo.delete(firebaseId);
@@ -115,7 +109,6 @@ export class NewsService {
     }
   }
 
-  // Méthodes utilitaires avec gestion d'erreurs
   async getNewsByCategory(category: string): Promise<Array<IJebNews & { firebaseId?: string }>> {
     try {
       this.logger.log(`Fetching news by category: ${category}`);
@@ -179,7 +172,6 @@ export class NewsService {
     }
   }
 
-  // Statistiques avec gestion d'erreurs
   async getStats(): Promise<{
     total: number;
     categories: Array<{ name: string; count: number }>;
@@ -199,7 +191,6 @@ export class NewsService {
     }
   }
 
-  // Méthodes de validation utilitaires
   private validateNewsData(news: Partial<IJebNews>): void {
     const errors: string[] = [];
 

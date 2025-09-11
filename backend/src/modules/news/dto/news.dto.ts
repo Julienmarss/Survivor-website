@@ -155,7 +155,7 @@ export class NewsFilterDto {
   })
   @IsOptional()
   @Type(() => Number)
-  @IsInt({ message: 'L\'ID de startup doit être un nombre entier' })
+  @IsInt({ message: 'L\'ID// <-- pour JwtService/JwtAuthGuard de startup doit être un nombre entier' })
   @Min(1, { message: 'L\'ID de startup doit être positif' })
   startupId?: number;
 

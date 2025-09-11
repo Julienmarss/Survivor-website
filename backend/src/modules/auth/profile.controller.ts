@@ -1,4 +1,3 @@
-// backend/src/modules/auth/profile.controller.ts
 import { 
   Body, 
   Controller, 

@@ -1,4 +1,3 @@
-// backend/src/modules/auth/repositories/user.repository.ts
 import { Injectable, Logger } from '@nestjs/common';
 import { FirebaseConfigService } from '../../../config/firebase.config';
 import { IUser, UserRole } from '../interfaces/user.interface';
@@ -49,9 +48,6 @@ export class UserRepository {
     }
   }
 
-  /**
-   * Filter out undefined values from an object
-   */
   private filterUndefined(obj: Record<string, any>): Record<string, any> {
     const filtered: Record<string, any> = {};
     
@@ -326,7 +322,6 @@ export class UserRepository {
     const user = doc.data() as IUser;
     user.id = doc.id;
 
-    // Convertir les timestamps Firestore en Date
     if (user.createdAt && typeof user.createdAt === 'object') {
       user.createdAt = (user.createdAt as any).toDate();
     }

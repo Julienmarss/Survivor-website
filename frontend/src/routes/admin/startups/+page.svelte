@@ -1,4 +1,3 @@
-<!-- src/routes/admin/startups/+page.svelte -->
 <script>
     import { onMount } from 'svelte';
     import { userStore } from '$lib/stores/userStore.js';
@@ -8,7 +7,6 @@
     import LoadingSpinner from '../../../lib/components/LoadingSpinner.svelte';
     import ErrorMessage from '../../../lib/components/ErrorMessage.svelte';
 
-    // États
     let user = null;
     let loading = false;
     let error = null;
@@ -18,7 +16,6 @@
     let selectedSector = 'all';
     let selectedStatus = 'all';
 
-    // Données
     let startups = [];
     let sectors = [];
     let pagination = {
@@ -28,7 +25,6 @@
         totalPages: 0
     };
 
-    // Formulaire
     let formData = {
         name: '',
         description: '',
@@ -41,10 +37,6 @@
         founders: []
     };
 
-    // Configuration API
-    const API_BASE = `${import.meta.env.PUBLIC_APIURL || 'http://localhost:3000'}/api`;
-
-    // S'abonner au store utilisateur
     userStore.subscribe(value => {
         user = value;
         if (user && !isAdmin(user)) {
@@ -266,7 +258,6 @@
         loadStartups(newPage);
     }
 
-    // Debounce pour la recherche
     let searchTimeout;
     function debounceSearch() {
         clearTimeout(searchTimeout);
@@ -295,7 +286,6 @@
 <div class="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-purple-100">
     <Header />
 
-    <!-- Vérification des permissions -->
     {#if !user || !isAdmin(user)}
         <div class="pt-24 px-6 sm:px-8 lg:px-12">
             <div class="max-w-4xl mx-auto text-center py-16">
@@ -309,12 +299,10 @@
             </div>
         </div>
     {:else}
-        <!-- Affichage des erreurs -->
         {#if error}
             <ErrorMessage message={error} onRetry={() => loadStartups(pagination.page)} />
         {/if}
 
-        <!-- En-tête -->
         <section class="pt-24 pb-8 px-6 sm:px-8 lg:px-12">
             <div class="max-w-7xl mx-auto">
                 <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-8">
@@ -347,7 +335,6 @@
                     </div>
                 </div>
 
-                <!-- Filtres -->
                 <div class="bg-white rounded-2xl shadow-lg p-6 mb-8">
                     <div class="grid md:grid-cols-4 gap-4">
                         <div>
@@ -403,7 +390,6 @@
             </div>
         </section>
 
-        <!-- Liste des startups -->
         <section class="pb-20 px-6 sm:px-8 lg:px-12">
             <div class="max-w-7xl mx-auto">
                 {#if loading}
@@ -420,7 +406,6 @@
                         </button>
                     </div>
                 {:else}
-                    <!-- Table des startups -->
                     <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
                         <div class="overflow-x-auto">
                             <table class="min-w-full divide-y divide-gray-200">

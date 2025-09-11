@@ -9,12 +9,10 @@ class MessagingService {
         this.token = null;
     }
 
-    // Initialiser le token d'authentification
     setAuthToken(token) {
         this.token = token;
     }
 
-    // Headers d'authentification
     getAuthHeaders() {
         return {
             'Content-Type': 'application/json',
@@ -22,7 +20,6 @@ class MessagingService {
         };
     }
 
-    // Gérer les erreurs HTTP
     async handleResponse(response) {
         if (!response.ok) {
             const error = await response.json();
@@ -33,7 +30,6 @@ class MessagingService {
 
     // === API REST ===
 
-    // Créer une nouvelle conversation
     async createConversation(conversationData) {
         const response = await fetch(`${API_BASE_URL}/messaging/conversations`, {
             method: 'POST',
@@ -43,7 +39,6 @@ class MessagingService {
         return this.handleResponse(response);
     }
 
-    // Récupérer les conversations de l'utilisateur
     async getUserConversations() {
         const response = await fetch(`${API_BASE_URL}/messaging/conversations`, {
             headers: this.getAuthHeaders()
@@ -51,7 +46,6 @@ class MessagingService {
         return this.handleResponse(response);
     }
 
-    // Récupérer les messages d'une conversation
     async getConversationMessages(conversationId, page = 1, limit = 50) {
         const response = await fetch(
             `${API_BASE_URL}/messaging/conversations/${conversationId}/messages?page=${page}&limit=${limit}`,
@@ -60,7 +54,6 @@ class MessagingService {
         return this.handleResponse(response);
     }
 
-    // Envoyer un message
     async sendMessage(messageData) {
         const response = await fetch(`${API_BASE_URL}/messaging/messages`, {
             method: 'POST',
@@ -70,7 +63,6 @@ class MessagingService {
         return this.handleResponse(response);
     }
 
-    // Modifier un message
     async editMessage(messageId, content) {
         const response = await fetch(`${API_BASE_URL}/messaging/messages/${messageId}`, {
             method: 'PUT',
@@ -80,7 +72,6 @@ class MessagingService {
         return this.handleResponse(response);
     }
 
-    // Supprimer un message
     async deleteMessage(messageId) {
         const response = await fetch(`${API_BASE_URL}/messaging/messages/${messageId}`, {
             method: 'DELETE',
@@ -89,7 +80,6 @@ class MessagingService {
         return this.handleResponse(response);
     }
 
-    // Rechercher des utilisateurs
     async searchUsers(query) {
         const response = await fetch(
             `${API_BASE_URL}/users/search?q=${encodeURIComponent(query)}`,
@@ -100,7 +90,6 @@ class MessagingService {
 
     // === WebSocket ===
 
-    // Initialiser la connexion WebSocket
     initSocket(userId) {
         if (this.socket) {
             this.socket.disconnect();
@@ -112,10 +101,8 @@ class MessagingService {
             }
         });
 
-        // Événements de connexion
         this.socket.on('connect', () => {
             console.log('WebSocket connecté');
-            // Rejoindre l'utilisateur
             this.socket.emit('join-user', { userId });
         });
 
@@ -130,35 +117,30 @@ class MessagingService {
         return this.socket;
     }
 
-    // Envoyer un message via WebSocket
     sendMessageSocket(messageData) {
         if (this.socket) {
             this.socket.emit('send-message', messageData);
         }
     }
 
-    // Rejoindre une conversation
     joinConversation(conversationId) {
         if (this.socket) {
             this.socket.emit('join-conversation', { conversationId });
         }
     }
 
-    // Quitter une conversation
     leaveConversation(conversationId) {
         if (this.socket) {
             this.socket.emit('leave-conversation', { conversationId });
         }
     }
 
-    // Indiquer qu'on est en train de taper
     sendTyping(conversationId, userId, isTyping) {
         if (this.socket) {
             this.socket.emit('typing', { conversationId, userId, isTyping });
         }
     }
 
-    // Déconnecter le WebSocket
     disconnect() {
         if (this.socket) {
             this.socket.disconnect();
@@ -168,7 +150,6 @@ class MessagingService {
 
     // === Utilitaires ===
 
-    // Formatter la date d'un message
     formatMessageTime(timestamp) {
         const date = new Date(timestamp);
         const now = new Date();
@@ -190,23 +171,19 @@ class MessagingService {
         });
     }
 
-    // Formatter le nom d'une conversation
     formatConversationName(conversation, currentUserId) {
         if (conversation.type === 'group') {
             return conversation.name || 'Conversation de groupe';
         }
 
-        // Pour une conversation directe, retourner le nom de l'autre participant
         const otherParticipant = conversation.participants.find(p => p.id !== currentUserId);
         return otherParticipant ? otherParticipant.name : 'Conversation';
     }
 
-    // Vérifier si un utilisateur est en ligne
     isUserOnline(userId, onlineUsers) {
         return onlineUsers.has(userId);
     }
 
-    // Générer un avatar par défaut basé sur les initiales
     generateAvatar(name) {
         if (!name) return '';
 
@@ -217,7 +194,6 @@ class MessagingService {
             .toUpperCase()
             .slice(0, 2);
 
-        // Couleurs basées sur la palette fournie
         const colors = [
             '#c174f2', '#cb90f1', '#d5a8f2', '#e4bef8',
             '#f18585', '#f49c9c', '#f6aeae', '#f8cacf'
@@ -233,7 +209,6 @@ class MessagingService {
         };
     }
 
-    // Débouncer pour les indicateurs de frappe
     debounce(func, wait) {
         let timeout;
         return function executedFunction(...args) {
@@ -247,5 +222,4 @@ class MessagingService {
     }
 }
 
-// Instance singleton du service
 export const messagingService = new MessagingService();

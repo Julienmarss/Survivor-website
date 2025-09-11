@@ -36,7 +36,6 @@ export class MessagingService {
         if (!conv) {
             throw new Error('Conversation not found');
         }
-        // Check if user is a participant
         const isParticipant = conv.participants?.some((p) => p.userId === userId) || 
                              (conv as any).participantIds?.includes(userId);
         if (!isParticipant) {

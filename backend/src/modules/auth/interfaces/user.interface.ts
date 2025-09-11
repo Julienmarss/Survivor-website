@@ -1,4 +1,3 @@
-// backend/src/modules/auth/interfaces/user.interface.ts - Version étendue
 export interface IUser {
   id?: string;
   uid?: string;
@@ -16,12 +15,11 @@ export interface IUser {
   age?: number;
   gender?: 'male' | 'female' | 'other' | 'prefer_not_to_say';
   
-  // ✅ AJOUT : Champs spécifiques aux étudiants
   school?: string;
   level?: string; // Niveau d'études (Bac +1, +2, etc.)
   field?: string; // Domaine d'études
   motivation?: string;
-  interests?: string[]; // Centres d'intérêt
+  interests?: string[];
   
   // Champs spécifiques aux startups
   companyName?: string;
@@ -58,7 +56,7 @@ export enum UserRole {
   ADMIN = 'admin',
   STARTUP = 'startup',
   INVESTOR = 'investor',
-  USER = 'user', // Pour les étudiants et autres utilisateurs
+  USER = 'user',
 }
 
 export interface IAuthResponse {
@@ -83,14 +81,12 @@ export interface IRegisterDto {
   age?: number;
   gender?: 'male' | 'female' | 'other' | 'prefer_not_to_say';
   
-  // ✅ Student fields
   school?: string;
   level?: string;
   field?: string;
   motivation?: string;
   interests?: string[];
   
-  // Startup fields
   companyName?: string;
   legalStatus?: string;
   address?: string;
@@ -105,7 +101,6 @@ export interface IRegisterDto {
   foundingDate?: Date;
   teamSize?: number;
   
-  // Investor fields
   investorType?: 'angel' | 'venture_capital' | 'private_equity' | 'corporate' | 'government';
   investmentRange?: {
     min: number;

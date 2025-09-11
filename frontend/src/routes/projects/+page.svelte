@@ -84,14 +84,12 @@
         startupsActions.loadSectors();
     }
 
-    // Debounce pour la recherche
     let searchTimeout;
     function debounceSearch() {
         clearTimeout(searchTimeout);
         searchTimeout = setTimeout(handleSearch, 500);
     }
 
-    // Fonction pour générer les numéros de page
     function generatePageNumbers() {
         const current = paginationInfo.page ?? 1;
         const total = paginationInfo.totalPages ?? 1;

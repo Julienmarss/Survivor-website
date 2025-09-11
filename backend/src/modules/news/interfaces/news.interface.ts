@@ -1,5 +1,3 @@
-// backend/src/modules/news/interfaces/news.interface.ts
-
 // Interface générique pour les news
 export interface INews {
   id: string;
@@ -14,7 +12,7 @@ export interface INews {
   imageUrl?: string;
 }
 
-// Format Firebase (étendu pour la synchronisation)
+// Format Firebase
 export interface IFirebaseNews {
   id: string;
   title: string;
@@ -25,35 +23,31 @@ export interface IFirebaseNews {
   startupId?: string;
   featured?: boolean;
   imageUrl?: string;
-  // Nouveaux champs pour la synchronisation
-  jebId?: number; // ID de référence vers l'API JEB (pour éviter doublons)
-  syncedAt?: string; // Timestamp de synchronisation
-  source: 'local' | 'jeb-synced'; // Source de la news
+  jebId?: number; 
+  syncedAt?: string; 
+  source: 'local' | 'jeb-synced'; 
   created_at?: string;
   updated_at?: string;
 }
 
-// Format JEB API (interface principale utilisée dans l'application)
+// Format JEB API 
 export interface IJebNews {
-  id?: number; // JEB API ID
+  id?: number;
   title: string;
-  description?: string; // Rendu optionnel pour plus de flexibilité
-  news_date: string; // Date au format ISO 8601
-  category?: string; // Rendu optionnel pour éviter les erreurs
-  location?: string; // Rendu optionnel pour éviter les erreurs
+  description?: string;
+  news_date: string;
+  category?: string;
+  location?: string;
   startup_id?: number;
-  firebaseId?: string; // Firestore doc ID
+  firebaseId?: string;
   
-  // Champs pour la synchronisation Firebase
   jebId?: number;
   syncedAt?: string;
   source?: 'local' | 'jeb-synced';
   
-  // Champs supplémentaires
   featured?: boolean;
   imageUrl?: string;
   
-  // Timestamps
   created_at?: string;
   updated_at?: string;
 }
@@ -68,7 +62,7 @@ export interface INewsStats {
   locations: Array<{ name: string; count: number }>;
   sources: Array<{ name: string; count: number }>;
   featured: number;
-  recent: number; // Last 30 days
+  recent: number;
   oldestDate?: string;
   newestDate?: string;
   startupsWithNews?: number;
@@ -85,7 +79,7 @@ export interface INewsFilters {
   limit?: number;
 }
 
-// Interface pour la création de news (données minimales requises)
+// Interface pour la création de news 
 export interface ICreateNewsData {
   title: string;
   category: string;

@@ -162,7 +162,7 @@
     error.set(null);
     
     try {
-      console.log(`🔄 Fetching from: ${API_URL}`);
+      console.log(`Fetching from: ${API_URL}`);
       const res = await fetch(API_URL);
       
       if (!res.ok) {

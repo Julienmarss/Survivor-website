@@ -1,4 +1,3 @@
-// backend/src/modules/events/events.module.ts
 import { Module } from '@nestjs/common';
 import { EventsController } from './events.controller';
 import { EventsService } from './events.service';
@@ -13,7 +12,7 @@ import { JebApiModule } from '../jeb-api/jeb-api.module';
   providers: [
     EventsService, 
     EventsRepository, 
-    EventsSyncService, // Service de synchronisation
+    EventsSyncService,
   ],
   exports: [EventsService, EventsRepository, EventsSyncService],
 })

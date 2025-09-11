@@ -33,14 +33,13 @@ export const filters = writable({
 // Store dérivé pour les statistiques formatées
 export const formattedStats = derived(startupsStats, ($stats) => ({
     startups: $stats.totalProjects || 0,
-    funds: Math.round(($stats.totalFunding || 50000000) / 1000000), // Convertir en millions
+    funds: Math.round(($stats.totalFunding || 50000000) / 1000000), 
     success: $stats.successRate || 85,
-    investors: $stats.jobsCreated || 150 // Utiliser jobsCreated comme proxy pour les investisseurs
+    investors: $stats.jobsCreated || 150 
 }));
 
 // Actions
 export const startupsActions = {
-    // Charger toutes les startups
     async loadStartups(page = 1, limit = 20) {
         loading.set(true);
         error.set(null);
@@ -58,15 +57,13 @@ export const startupsActions = {
                 filtersValue.search || null
             );
 
-            // Adapter les données pour l'affichage
             const adaptedStartups = response.data.map(startup => ({
                 ...startup,
-                // Ajouter des propriétés pour la compatibilité avec l'UI existante
                 category: startup.sector,
                 stage: startup.maturity,
                 gradient: getCategoryGradient(startup.sector),
                 investors: startup.founders ? startup.founders.map(f => f.name) : [],
-                fundsRaised: 0 // À calculer si nécessaire
+                fundsRaised: 0 
             }));
 
             startupsList.set(adaptedStartups);
@@ -85,7 +82,6 @@ export const startupsActions = {
         }
     },
 
-    // Charger les startups en vedette pour la page d'accueil
     async loadFeatured(limit = 6) {
         loading.set(true);
         error.set(null);
@@ -159,7 +155,6 @@ export const startupsActions = {
             startupsStats.set(stats);
         } catch (err) {
             console.error('Erreur lors du chargement des statistiques:', err);
-            // Garder les stats par défaut en cas d'erreur
         }
     },
 
@@ -170,7 +165,6 @@ export const startupsActions = {
 
         try {
             const result = await startupsApi.syncWithJebApi();
-            // Recharger les données après la synchronisation
             await this.loadStartups();
             await this.loadStats();
             return result;
@@ -197,7 +191,6 @@ export const startupsActions = {
         });
     },
 
-    // Effacer l'erreur
     clearError() {
         error.set(null);
     },
@@ -215,7 +208,7 @@ export const startupsActions = {
     }
 };
 
-// Fonction utilitaire pour les gradients (conservée de l'UI existante)
+// Fonction utilitaire pour les gradients
 function getCategoryGradient(category) {
     const gradients = {
         'GreenTech': 'from-green-400 to-emerald-600',
@@ -236,7 +229,6 @@ function getCategoryGradient(category) {
     return gradients[category] || gradients.default;
 }
 
-// Export par défaut pour la rétrocompatibilité
 export default {
     startupsList,
     featuredStartups,

@@ -1,4 +1,3 @@
-// backend/src/modules/events/events.controller.ts
 import { 
   Controller, 
   Get, 
@@ -19,7 +18,7 @@ import { IJebEvent } from './interfaces/events.interface';
 import { CreateEventDto, UpdateEventDto } from './dto/events.dto';
 
 @ApiTags('Events')
-@Controller('events') // Ceci donne /api/events avec le prefix global
+@Controller('events')
 export class EventsController {
   private readonly logger = new Logger(EventsController.name);
 
@@ -48,7 +47,6 @@ export class EventsController {
     this.logger.log('GET /api/events called', { eventType, featured, targetAudience, search, upcoming });
     
     try {
-      // Filtres spécifiques
       if (search) {
         return this.eventsService.searchEvents(search);
       }
@@ -68,13 +66,11 @@ export class EventsController {
       if (upcoming === true) {
         return this.eventsService.getUpcomingEvents();
       }
-
-      // Tous les events
       const result = await this.eventsService.findAll();
-      this.logger.log(`✅ GET /api/events success - ${result.length} events returned`);
+      this.logger.log(`GET /api/events success - ${result.length} events returned`);
       return result;
     } catch (error) {
-      this.logger.error('❌ GET /api/events failed', error);
+      this.logger.error('GET /api/events failed', error);
       throw error;
     }
   }
@@ -100,18 +96,17 @@ export class EventsController {
   async getEventById(@Param('id') id: string) {
     this.logger.log(`GET /api/events/${id} called`);
     
-    // VALIDATION: Vérifier que l'ID n'est pas undefined/null/empty
     if (!id || id === 'undefined' || id === 'null' || id.trim() === '') {
-      this.logger.error(`❌ GET /api/events/${id} - Invalid ID`);
+      this.logger.error(`GET /api/events/${id} - Invalid ID`);
       throw new BadRequestException('ID de l\'event invalide ou manquant');
     }
 
     try {
       const result = await this.eventsService.findById(id);
-      this.logger.log(`✅ GET /api/events/${id} success`);
+      this.logger.log(`GET /api/events/${id} success`);
       return result;
     } catch (error) {
-      this.logger.error(`❌ GET /api/events/${id} failed`, error);
+      this.logger.error(`GET /api/events/${id} failed`, error);
       throw new NotFoundException(`Event avec l'ID ${id} non trouvé`);
     }
   }
@@ -124,7 +119,6 @@ export class EventsController {
     this.logger.log('POST /api/events called', createEventDto);
     
     try {
-      // VALIDATION: Vérifier les champs obligatoires
       if (!createEventDto.name || createEventDto.name.trim() === '') {
         throw new BadRequestException('Le nom est obligatoire');
       }
@@ -138,7 +132,6 @@ export class EventsController {
         throw new BadRequestException('Les dates sont obligatoires');
       }
 
-      // Mapping entre DTO et Interface
       const eventData: Partial<IJebEvent> = {
         name: createEventDto.name.trim(),
         description: createEventDto.description?.trim() || '',
@@ -148,15 +141,15 @@ export class EventsController {
         target_audience: createEventDto.target_audience?.trim() || '',
         imageUrl: createEventDto.imageUrl?.trim(),
         featured: createEventDto.featured || false,
-        source: 'local', // Marquer comme event local
+        source: 'local',
       };
 
-      this.logger.log('📝 Creating event with data:', eventData);
+      this.logger.log('Creating event with data:', eventData);
       const result = await this.eventsService.createEvent(eventData);
-      this.logger.log(`✅ POST /api/events success - Created event with ID: ${result.firebaseId}`);
+      this.logger.log(`POST /api/events success - Created event with ID: ${result.firebaseId}`);
       return result;
     } catch (error) {
-      this.logger.error('❌ POST /api/events failed', error);
+      this.logger.error('POST /api/events failed', error);
       throw new BadRequestException(`Erreur lors de la création: ${error.message}`);
     }
   }
@@ -172,14 +165,12 @@ export class EventsController {
   ) {
     this.logger.log(`PUT /api/events/${id} called`, updateEventDto);
     
-    // VALIDATION: Vérifier que l'ID n'est pas undefined/null/empty
     if (!id || id === 'undefined' || id === 'null' || id.trim() === '') {
-      this.logger.error(`❌ PUT /api/events/${id} - Invalid ID`);
+      this.logger.error(`PUT /api/events/${id} - Invalid ID`);
       throw new BadRequestException('ID de l\'event invalide ou manquant');
     }
 
     try {
-      // Mapping plus robuste et vérification des champs
       const eventData: Partial<IJebEvent> = {};
       
       if (updateEventDto.name !== undefined && updateEventDto.name.trim() !== '') {
@@ -207,17 +198,16 @@ export class EventsController {
         eventData.featured = updateEventDto.featured;
       }
 
-      // Vérifier qu'il y a au moins une donnée à mettre à jour
       if (Object.keys(eventData).length === 0) {
         throw new BadRequestException('Aucune donnée à mettre à jour fournie');
       }
 
-      this.logger.log(`📝 Updating event ${id} with data:`, eventData);
+      this.logger.log(`Updating event ${id} with data:`, eventData);
       const result = await this.eventsService.updateEvent(id, eventData);
-      this.logger.log(`✅ PUT /api/events/${id} success`);
+      this.logger.log(`PUT /api/events/${id} success`);
       return result;
     } catch (error) {
-      this.logger.error(`❌ PUT /api/events/${id} failed`, error);
+      this.logger.error(`PUT /api/events/${id} failed`, error);
       if (error.status === 404) {
         throw new NotFoundException(`Event avec l'ID ${id} non trouvé`);
       }
@@ -233,18 +223,17 @@ export class EventsController {
   async deleteEvent(@Param('id') id: string) {
     this.logger.log(`DELETE /api/events/${id} called`);
     
-    // VALIDATION: Vérifier que l'ID n'est pas undefined/null/empty
     if (!id || id === 'undefined' || id === 'null' || id.trim() === '') {
-      this.logger.error(`❌ DELETE /api/events/${id} - Invalid ID`);
+      this.logger.error(`DELETE /api/events/${id} - Invalid ID`);
       throw new BadRequestException('ID de l\'event invalide ou manquant');
     }
 
     try {
       const result = await this.eventsService.deleteEvent(id);
-      this.logger.log(`✅ DELETE /api/events/${id} success`);
+      this.logger.log(`DELETE /api/events/${id} success`);
       return result;
     } catch (error) {
-      this.logger.error(`❌ DELETE /api/events/${id} failed`, error);
+      this.logger.error(`DELETE /api/events/${id} failed`, error);
       if (error.status === 404) {
         throw new NotFoundException(`Event avec l'ID ${id} non trouvé`);
       }

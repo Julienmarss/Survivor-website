@@ -1,4 +1,3 @@
-// frontend/src/lib/services/authApi.js - Version corrigée
 const API_BASE_URL = `${import.meta.env.PUBLIC_APIURL || 'http://localhost:3000'}/api`;
 
 class AuthApiService {
@@ -16,7 +15,6 @@ class AuthApiService {
             ...options,
         };
 
-        // Ajouter le token d'authentification si disponible
         const token = this.getToken();
         if (token) {
             config.headers['Authorization'] = `Bearer ${token}`;
@@ -37,17 +35,15 @@ class AuthApiService {
         }
     }
 
-    // ✅ Inscription étudiant corrigée - utilise registerUser
     async registerStudent(studentData) {
         const mappedData = {
             email: studentData.email,
             password: studentData.password,
             firstName: studentData.firstName,
             lastName: studentData.lastName,
-            age: 20, // Valeur par défaut pour les étudiants
-            gender: 'prefer_not_to_say', // Valeur par défaut
+            age: 20,
+            gender: 'prefer_not_to_say',
             
-            // ✅ Champs spécifiques aux étudiants
             school: studentData.school,
             level: studentData.level,
             field: studentData.field,
@@ -68,7 +64,6 @@ class AuthApiService {
         return response;
     }
 
-    // Inscription startup (garde la logique existante)
     async registerStartup(startupData) {
         const mappedData = {
             email: startupData.email,
@@ -108,7 +103,6 @@ class AuthApiService {
         return response;
     }
 
-    // Inscription investisseur (garde la logique existante) 
     async registerInvestor(investorData) {
         const mappedData = {
             email: investorData.email,
@@ -150,7 +144,6 @@ class AuthApiService {
         return response;
     }
 
-    // Inscription utilisateur standard (pour référence)
     async registerUser(userData) {
         const response = await this.request('/auth/register/user', {
             method: 'POST',
@@ -164,7 +157,6 @@ class AuthApiService {
         return response;
     }
 
-    // Connexion
     async login(credentials) {
         const response = await this.request('/auth/login', {
             method: 'POST',
@@ -178,7 +170,6 @@ class AuthApiService {
         return response;
     }
 
-    // Déconnexion
     async logout() {
         try {
             await this.request('/auth/logout', {
@@ -191,7 +182,6 @@ class AuthApiService {
         }
     }
 
-    // Vérifier le token
     async verifyToken(token) {
         const response = await this.request('/auth/verify', {
             method: 'POST',
@@ -200,13 +190,11 @@ class AuthApiService {
         return response;
     }
 
-    // Obtenir le profil utilisateur actuel
     async getCurrentUser() {
         const response = await this.request('/auth/me');
         return response;
     }
 
-    // Mettre à jour le profil
     async updateProfile(profileData) {
         const response = await this.request('/auth/profile', {
             method: 'PUT',
@@ -215,7 +203,6 @@ class AuthApiService {
         return response;
     }
 
-    // Gestion du token
     setToken(token) {
         if (typeof window !== 'undefined') {
             localStorage.setItem('jeb_auth_token', token);
@@ -235,7 +222,6 @@ class AuthApiService {
         }
     }
 
-    // Vérifier si l'utilisateur est connecté
     isAuthenticated() {
         return !!this.getToken();
     }

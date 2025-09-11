@@ -114,19 +114,22 @@
       <!-- Navigation Desktop -->
       <div class="hidden md:block">
         <div class="ml-10 flex items-baseline space-x-8">
-          <a href="#" class="text-gray-900 hover:text-[#c174f2] px-3 py-2 text-sm font-medium font-['Open_Sans'] transition-colors duration-300">
+          <a href="/" class="text-gray-900 hover:text-[#c174f2] px-3 py-2 text-sm font-medium font-['Open_Sans'] transition-colors duration-300">
             Accueil
           </a>
           <a href="/projects" class="text-gray-600 hover:text-[#c174f2] px-3 py-2 text-sm font-medium font-['Open_Sans'] transition-colors duration-300">
             Projets
           </a>
-          <a href="#" class="text-gray-600 hover:text-[#c174f2] px-3 py-2 text-sm font-medium font-['Open_Sans'] transition-colors duration-300">
+          <a href="/news" class="text-gray-600 hover:text-[#c174f2] px-3 py-2 text-sm font-medium font-['Open_Sans'] transition-colors duration-300">
             Actualités
           </a>
-          <a href="#" class="text-gray-600 hover:text-[#c174f2] px-3 py-2 text-sm font-medium font-['Open_Sans'] transition-colors duration-300">
+          <a href="/events" class="text-gray-600 hover:text-[#c174f2] px-3 py-2 text-sm font-medium font-['Open_Sans'] transition-colors duration-300">
             Événements
           </a>
-          <a href="#" class="text-gray-600 hover:text-[#c174f2] px-3 py-2 text-sm font-medium font-['Open_Sans'] transition-colors duration-300">
+          <a href="/messages" class="text-gray-600 hover:text-[#c174f2] px-3 py-2 text-sm font-medium font-['Open_Sans'] transition-colors duration-300">
+            Messagerie
+          </a>
+          <a href="/about" class="text-gray-600 hover:text-[#c174f2] px-3 py-2 text-sm font-medium font-['Open_Sans'] transition-colors duration-300">
             À propos
           </a>
         </div>
@@ -260,19 +263,22 @@
     {#if isMenuOpen}
       <div class="md:hidden" transition:slide={{ duration: 300 }}>
         <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white border-t border-gray-200 shadow-lg">
-          <a href="#" on:click={closeMenu} class="block px-3 py-2 text-base font-medium text-gray-900 hover:text-[#c174f2]">
+          <a href="/" on:click={closeMenu} class="block px-3 py-2 text-base font-medium text-gray-900 hover:text-[#c174f2]">
             Accueil
           </a>
           <a href="/projects" on:click={closeMenu} class="block px-3 py-2 text-base font-medium text-gray-600 hover:text-[#c174f2]">
             Projets
           </a>
-          <a href="#" on:click={closeMenu} class="block px-3 py-2 text-base font-medium text-gray-600 hover:text-[#c174f2]">
+          <a href="/news" on:click={closeMenu} class="block px-3 py-2 text-base font-medium text-gray-600 hover:text-[#c174f2]">
             Actualités
           </a>
-          <a href="#" on:click={closeMenu} class="block px-3 py-2 text-base font-medium text-gray-600 hover:text-[#c174f2]">
+          <a href="/events" on:click={closeMenu} class="block px-3 py-2 text-base font-medium text-gray-600 hover:text-[#c174f2]">
             Événements
           </a>
-          <a href="#" on:click={closeMenu} class="block px-3 py-2 text-base font-medium text-gray-600 hover:text-[#c174f2]">
+          <a href="/messages" on:click={closeMenu} class="block px-3 py-2 text-base font-medium text-gray-600 hover:text-[#c174f2]">
+            Messagerie
+          </a>
+          <a href="/about" on:click={closeMenu} class="block px-3 py-2 text-base font-medium text-gray-600 hover:text-[#c174f2]">
             À propos
           </a>
 

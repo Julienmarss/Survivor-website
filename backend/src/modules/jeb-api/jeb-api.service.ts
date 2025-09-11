@@ -1,4 +1,3 @@
-// backend/src/modules/jeb-api/jeb-api.service.ts
 import { Injectable, Logger, HttpException } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
@@ -127,19 +126,17 @@ export class JebApiService {
       return response.data;
     } catch (error) {
       this.logger.warn(`Failed to fetch news image ${newsId} from JEB API`, error.response?.data || error.message);
-      // Return empty string if image not found
       return '';
     }
   }
 
   /**
-   * Get news with images (enriched data)
+   * Get news with images
    */
   async getNewsWithImages(skip = 0, limit = 100): Promise<Array<IJebNews & { imageUrl?: string }>> {
     try {
       const news = await this.getAllNews(skip, limit);
       
-      // Fetch images for each news item (with concurrent limit to avoid overwhelming API)
       const batchSize = 5;
       const newsWithImages: Array<IJebNews & { imageUrl?: string }> = [];
       
@@ -151,7 +148,6 @@ export class JebApiService {
               const imageUrl = await this.getNewsImage(newsItem.id);
               return { ...newsItem, imageUrl };
             } catch (error) {
-              // If image fetch fails, return news without image
               return newsItem;
             }
           })
@@ -171,14 +167,12 @@ export class JebApiService {
    */
   async getNewsByCategory(category: string, skip = 0, limit = 100): Promise<IJebNews[]> {
     try {
-      const allNews = await this.getAllNews(0, limit * 3); // Get more to ensure we have enough after filtering
+      const allNews = await this.getAllNews(0, limit * 3);
       
-      // Filter by category (case-insensitive)
       const filteredNews = allNews.filter(news => 
         news.category && news.category.toLowerCase() === category.toLowerCase()
       );
 
-      // Apply pagination to filtered results
       return filteredNews.slice(skip, skip + limit);
     } catch (error) {
       this.logger.error(`Failed to fetch news by category ${category} from JEB API`, error);
@@ -191,9 +185,8 @@ export class JebApiService {
    */
   async getRecentNews(limit = 10): Promise<IJebNews[]> {
     try {
-      const news = await this.getAllNews(0, limit * 2); // Get more to ensure good sorting
+      const news = await this.getAllNews(0, limit * 2);
       
-      // Sort by news_date descending
       const sortedNews = news.sort((a, b) => {
         const dateA = new Date(a.news_date || '1970-01-01');
         const dateB = new Date(b.news_date || '1970-01-01');
@@ -212,12 +205,10 @@ export class JebApiService {
    */
   async getNewsByStartupId(startupId: number, limit = 10): Promise<IJebNews[]> {
     try {
-      const allNews = await this.getAllNews(0, 200); // Get more to filter
+      const allNews = await this.getAllNews(0, 200);
       
-      // Filter by startup_id
       const startupNews = allNews.filter(news => news.startup_id === startupId);
       
-      // Sort by date descending and limit
       const sortedNews = startupNews.sort((a, b) => {
         const dateA = new Date(a.news_date || '1970-01-01');
         const dateB = new Date(b.news_date || '1970-01-01');
@@ -239,7 +230,6 @@ export class JebApiService {
       const allNews = await this.getAllNews(0, 200);
       const searchQuery = query.toLowerCase().trim();
       
-      // Filter by title, description, or category containing the query
       const filteredNews = allNews.filter(news => 
         news.title.toLowerCase().includes(searchQuery) ||
         news.description?.toLowerCase().includes(searchQuery) ||
@@ -247,7 +237,6 @@ export class JebApiService {
         news.location?.toLowerCase().includes(searchQuery)
       );
 
-      // Sort by relevance (title match first, then description, then others)
       const sortedNews = filteredNews.sort((a, b) => {
         const aTitle = a.title.toLowerCase().includes(searchQuery) ? 3 : 0;
         const aDesc = a.description?.toLowerCase().includes(searchQuery) ? 2 : 0;
@@ -263,10 +252,9 @@ export class JebApiService {
         const bScore = bTitle + bDesc + bOther;
         
         if (aScore !== bScore) {
-          return bScore - aScore; // Higher score first
+          return bScore - aScore;
         }
         
-        // If same score, sort by date
         const dateA = new Date(a.news_date || '1970-01-01');
         const dateB = new Date(b.news_date || '1970-01-01');
         return dateB.getTime() - dateA.getTime();
@@ -286,12 +274,10 @@ export class JebApiService {
     try {
       const allNews = await this.getAllNews(0, 200);
       
-      // Filter by location (case-insensitive)
       const filteredNews = allNews.filter(news => 
         news.location && news.location.toLowerCase().includes(location.toLowerCase())
       );
 
-      // Sort by date descending
       const sortedNews = filteredNews.sort((a, b) => {
         const dateA = new Date(a.news_date || '1970-01-01');
         const dateB = new Date(b.news_date || '1970-01-01');
@@ -320,7 +306,6 @@ export class JebApiService {
     try {
       const allNews = await this.getAllNews(0, 1000);
       
-      // Count by category
       const categories: Record<string, number> = {};
       const locations: Record<string, number> = {};
       const startupsWithNews = new Set<number>();
@@ -328,28 +313,23 @@ export class JebApiService {
       let newestDate = new Date('1970-01-01');
       
       allNews.forEach(news => {
-        // Categories
         const category = news.category || 'uncategorized';
         categories[category] = (categories[category] || 0) + 1;
         
-        // Locations
         if (news.location) {
           const location = news.location;
           locations[location] = (locations[location] || 0) + 1;
         }
         
-        // Startups with news
         if (news.startup_id) {
           startupsWithNews.add(news.startup_id);
         }
         
-        // Dates
         const newsDate = new Date(news.news_date || '1970-01-01');
         if (newsDate < oldestDate) oldestDate = newsDate;
         if (newsDate > newestDate) newestDate = newsDate;
       });
 
-      // Recent count (last 30 days)
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       const recentCount = allNews.filter(news => 
@@ -367,7 +347,7 @@ export class JebApiService {
       return {
         total: allNews.length,
         categories: categoryArray,
-        locations: locationArray.slice(0, 10), // Top 10 locations
+        locations: locationArray.slice(0, 10),
         recentCount,
         oldestDate: oldestDate.toISOString().split('T')[0],
         newestDate: newestDate.toISOString().split('T')[0],
@@ -553,7 +533,6 @@ export class JebApiService {
       return response.data;
     } catch (error) {
       this.logger.warn(`Failed to fetch event image ${eventId} from JEB API`, error.response?.data || error.message);
-      // Return empty string if image not found
       return '';
     }
   }
@@ -565,7 +544,6 @@ export class JebApiService {
     try {
       const events = await this.getAllEvents(skip, limit);
 
-      // Fetch images for each event item (with concurrent limit to avoid overwhelming API)
       const batchSize = 5;
       const eventsWithImages: Array<IJebEvent & { imageUrl?: string }> = [];
 
@@ -577,7 +555,6 @@ export class JebApiService {
               const imageUrl = await this.getEventImage(eventItem.id);
               return { ...eventItem, imageUrl };
             } catch (error) {
-              // If image fetch fails, return event without image
               return eventItem;
             }
           })
@@ -597,14 +574,12 @@ export class JebApiService {
    */
   async getEventsByType(eventType: string, skip = 0, limit = 100): Promise<IJebEvent[]> {
     try {
-      const allEvents = await this.getAllEvents(0, limit * 3); // Get more to ensure we have enough after filtering
+      const allEvents = await this.getAllEvents(0, limit * 3); 
 
-      // Filter by event_type (case-insensitive)
       const filteredEvents = allEvents.filter(event => 
         event.event_type && event.event_type.toLowerCase() === eventType.toLowerCase()
       );
 
-      // Apply pagination to filtered results
       return filteredEvents.slice(skip, skip + limit);
     } catch (error) {
       this.logger.error(`Failed to fetch events by type ${eventType} from JEB API`, error);
@@ -617,10 +592,9 @@ export class JebApiService {
    */
   async getUpcomingEvents(limit = 10): Promise<IJebEvent[]> {
     try {
-      const events = await this.getAllEvents(0, limit * 2); // Get more to ensure good filtering
+      const events = await this.getAllEvents(0, limit * 2);
       const now = new Date();
 
-      // Filter upcoming events and sort by date
       const upcomingEvents = events
         .filter(event => {
           const eventDate = new Date(event.dates);
@@ -646,12 +620,10 @@ export class JebApiService {
     try {
       const allEvents = await this.getAllEvents(0, 200);
 
-      // Filter by target_audience (case-insensitive)
       const filteredEvents = allEvents.filter(event => 
         event.target_audience && event.target_audience.toLowerCase().includes(targetAudience.toLowerCase())
       );
 
-      // Sort by date ascending (upcoming first)
       const sortedEvents = filteredEvents.sort((a, b) => {
         const dateA = new Date(a.dates);
         const dateB = new Date(b.dates);
@@ -673,7 +645,6 @@ export class JebApiService {
       const allEvents = await this.getAllEvents(0, 200);
       const searchQuery = query.toLowerCase().trim();
 
-      // Filter by name, description, event_type, or location containing the query
       const filteredEvents = allEvents.filter(event => 
         event.name.toLowerCase().includes(searchQuery) ||
         event.description?.toLowerCase().includes(searchQuery) ||
@@ -682,7 +653,6 @@ export class JebApiService {
         event.target_audience?.toLowerCase().includes(searchQuery)
       );
 
-      // Sort by relevance (name match first, then description, then others)
       const sortedEvents = filteredEvents.sort((a, b) => {
         const aName = a.name.toLowerCase().includes(searchQuery) ? 4 : 0;
         const aDesc = a.description?.toLowerCase().includes(searchQuery) ? 3 : 0;
@@ -700,10 +670,9 @@ export class JebApiService {
         const bScore = bName + bDesc + bType + bOther;
 
         if (aScore !== bScore) {
-          return bScore - aScore; // Higher score first
+          return bScore - aScore;
         }
 
-        // If same score, sort by date
         const dateA = new Date(a.dates);
         const dateB = new Date(b.dates);
         return dateA.getTime() - dateB.getTime();
@@ -723,12 +692,10 @@ export class JebApiService {
     try {
       const allEvents = await this.getAllEvents(0, 200);
 
-      // Filter by location (case-insensitive)
       const filteredEvents = allEvents.filter(event => 
         event.location && event.location.toLowerCase().includes(location.toLowerCase())
       );
 
-      // Sort by date ascending (upcoming first)
       const sortedEvents = filteredEvents.sort((a, b) => {
         const dateA = new Date(a.dates);
         const dateB = new Date(b.dates);
@@ -758,7 +725,6 @@ export class JebApiService {
     try {
       const allEvents = await this.getAllEvents(0, 1000);
 
-      // Count by category
       const eventTypes: Record<string, number> = {};
       const locations: Record<string, number> = {};
       const targetAudiences: Record<string, number> = {};
@@ -769,23 +735,19 @@ export class JebApiService {
       const now = new Date();
 
       allEvents.forEach(event => {
-        // Event types
         const eventType = event.event_type || 'uncategorized';
         eventTypes[eventType] = (eventTypes[eventType] || 0) + 1;
 
-        // Locations
         if (event.location) {
           const location = event.location;
           locations[location] = (locations[location] || 0) + 1;
         }
 
-        // Target audiences
         if (event.target_audience) {
           const audience = event.target_audience;
           targetAudiences[audience] = (targetAudiences[audience] || 0) + 1;
         }
 
-        // Dates and upcoming/past
         const eventDate = new Date(event.dates);
         if (eventDate < oldestDate) oldestDate = eventDate;
         if (eventDate > newestDate) newestDate = eventDate;
@@ -812,8 +774,8 @@ export class JebApiService {
       return {
         total: allEvents.length,
         eventTypes: eventTypeArray,
-        locations: locationArray.slice(0, 10), // Top 10 locations
-        targetAudiences: targetAudienceArray.slice(0, 10), // Top 10 audiences
+        locations: locationArray.slice(0, 10),
+        targetAudiences: targetAudienceArray.slice(0, 10),
         upcoming,
         past,
         oldestDate: oldestDate.toISOString().split('T')[0],

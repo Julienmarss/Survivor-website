@@ -1,4 +1,3 @@
-// backend/src/modules/events/repositories/events.repository.ts
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { FirebaseConfigService } from '../../../config/firebase.config';
 import { IJebEvent } from '../interfaces/events.interface';
@@ -15,7 +14,7 @@ export class EventsRepository {
     try {
       const snapshot = await this.firestore
         .collection(this.collection)
-        .orderBy('dates', 'asc') // Order by event date ascending
+        .orderBy('dates', 'asc')
         .get();
       
       return snapshot.docs.map(doc => ({
@@ -48,7 +47,6 @@ export class EventsRepository {
 
   async create(event: Partial<IJebEvent>): Promise<IJebEvent & { firebaseId: string }> {
     try {
-      // VALIDATION: Vérifier les champs obligatoires
       if (!event.name) {
         throw new Error('Name is required');
       }
@@ -70,7 +68,6 @@ export class EventsRepository {
         syncedAt: event.syncedAt || new Date().toISOString(),
       };
 
-      // CORRECTION: Supprimer les champs undefined pour Firebase
       const cleanedData = {};
       Object.keys(eventData).forEach(key => {
         if (eventData[key] !== undefined && eventData[key] !== null) {
@@ -82,7 +79,6 @@ export class EventsRepository {
 
       const docRef = await this.firestore.collection(this.collection).add(cleanedData);
       
-      // CORRECTION: Récupérer les données créées pour s'assurer de la cohérence
       const created = await docRef.get();
       
       if (!created.exists) {
@@ -106,7 +102,6 @@ export class EventsRepository {
     try {
       const docRef = this.firestore.collection(this.collection).doc(firebaseId);
       
-      // Vérifier que le document existe avant la mise à jour
       const existingDoc = await docRef.get();
       if (!existingDoc.exists) {
         throw new NotFoundException(`Event with ID ${firebaseId} not found`);
@@ -117,7 +112,6 @@ export class EventsRepository {
         updated_at: new Date().toISOString(),
       };
 
-      // CORRECTION: Supprimer les champs undefined pour Firebase
       const cleanedUpdateData = {};
       Object.keys(updateData).forEach(key => {
         if (updateData[key] !== undefined && updateData[key] !== null) {
@@ -129,7 +123,6 @@ export class EventsRepository {
 
       await docRef.update(cleanedUpdateData);
       
-      // Récupérer les données mises à jour
       const updated = await docRef.get();
       if (!updated.exists) {
         throw new Error('Document was deleted during update');
@@ -245,8 +238,6 @@ export class EventsRepository {
 
   async search(query: string): Promise<Array<IJebEvent & { firebaseId?: string }>> {
     try {
-      // Firebase ne supporte pas la recherche full-text native,
-      // donc on récupère tout et on filtre côté application
       const snapshot = await this.firestore
         .collection(this.collection)
         .orderBy('dates', 'asc')
@@ -279,8 +270,8 @@ export class EventsRepository {
     targetAudiences: Array<{ name: string; count: number }>;
     sources: Array<{ name: string; count: number }>;
     featured: number;
-    upcoming: number; // Events in the future
-    past: number; // Events in the past
+    upcoming: number;
+    past: number;
   }> {
     try {
       const snapshot = await this.firestore.collection(this.collection).get();

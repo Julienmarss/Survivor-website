@@ -1,4 +1,3 @@
-// backend/src/modules/auth/dto/auth.dto.ts
 import { IsEmail, IsString, IsOptional, IsEnum, MinLength, IsNumber, IsArray, IsObject, ValidateNested, IsUrl, Min, Max, IsDateString, IsBoolean } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
@@ -61,8 +60,6 @@ export class RegisterUserDto {
   role: UserRole.USER = UserRole.USER;
 }
 
-// backend/src/modules/auth/dto/auth.dto.ts - RegisterStartupDto corrigé
-
 export class RegisterStartupDto {
   @ApiProperty({ example: 'founder@startup.com' })
   @IsEmail()
@@ -106,7 +103,6 @@ export class RegisterStartupDto {
   @IsString()
   description: string;
 
-  // Support des deux noms de champs pour la maturité
   @ApiProperty({ 
     enum: ['Idéation', 'Prototype', 'MVP', 'Validation', 'Traction', 'Croissance', 'Scale-up'], 
     example: 'MVP',
@@ -125,7 +121,6 @@ export class RegisterStartupDto {
   @IsString()
   stage?: string;
 
-  // Support des deux formats pour foundingDate
   @ApiProperty({ example: '2022-01-15', required: false })
   @IsOptional()
   @IsDateString()
@@ -136,7 +131,6 @@ export class RegisterStartupDto {
   @IsNumber()
   foundingYear?: number;
 
-  // TeamSize comme string (frontend) ou number
   @ApiProperty({ 
     oneOf: [
       { type: 'string', example: '2-3 personnes' },
@@ -187,7 +181,6 @@ export class RegisterStartupDto {
   @IsString()
   needs?: string;
 
-  // Champs spécifiques du frontend
   @ApiProperty({ example: 'Jean Dupont, CTO expert en IA', required: false })
   @IsOptional()
   @IsString()

@@ -1,4 +1,3 @@
-// backend/src/modules/startups/repositories/startups.repository.ts - Version corrigée
 import { Injectable, Logger } from '@nestjs/common';
 import { FirebaseConfigService } from '../../../config/firebase.config';
 import { IStartup, IFounder, IPaginationResult, ISectorCount } from '../interfaces/startup.interface';
@@ -15,10 +14,6 @@ export class StartupRepository {
     return this.firebaseConfig.getFirestore();
   }
 
-  /**
-   * Nettoie un objet en supprimant les valeurs undefined/null
-   * et en les remplaçant par des valeurs par défaut appropriées
-   */
   private cleanDataForFirestore(obj: any): any {
     if (obj === null || obj === undefined) {
       return null;
@@ -31,7 +26,7 @@ export class StartupRepository {
     }
     
     if (typeof obj === 'object' && obj instanceof Date) {
-      return obj; // Les dates sont OK
+      return obj; 
     }
     
     if (typeof obj === 'object') {
@@ -41,13 +36,11 @@ export class StartupRepository {
         if (value !== undefined && value !== null) {
           cleaned[key] = this.cleanDataForFirestore(value);
         } else {
-          // Remplacer undefined/null par des valeurs par défaut selon le type de champ
           if (typeof value === 'string' || key.includes('url') || key.includes('_url')) {
-            cleaned[key] = ''; // Chaîne vide pour les strings et URLs
+            cleaned[key] = ''; 
           } else if (typeof value === 'number') {
-            cleaned[key] = 0; // 0 pour les nombres
+            cleaned[key] = 0;
           }
-          // Ne pas inclure les autres valeurs undefined/null
         }
       }
       
@@ -68,7 +61,6 @@ export class StartupRepository {
         db_updated_at: now
       };
 
-      // ✅ CORRECTION : Nettoyer les données avant l'envoi à Firestore
       const cleanedData = this.cleanDataForFirestore(rawData);
       
       this.logger.log('📝 Data to be saved (cleaned):', JSON.stringify(cleanedData, null, 2));
@@ -76,10 +68,10 @@ export class StartupRepository {
       const docRef = await this.db.collection(this.startupsCollection).add(cleanedData);
       const startup = { ...cleanedData, id: docRef.id } as IStartup;
 
-      this.logger.log(`✅ Startup created successfully: ${startup.name} (ID: ${startup.id})`);
+      this.logger.log(`Startup created successfully: ${startup.name} (ID: ${startup.id})`);
       return startup;
     } catch (error) {
-      this.logger.error('❌ Error creating startup:', error);
+      this.logger.error('Error creating startup:', error);
       throw error;
     }
   }
@@ -88,18 +80,17 @@ export class StartupRepository {
     try {
       this.logger.log(`Creating founder: ${founderData.name} for startup ${founderData.startup_id}`);
       
-      // ✅ CORRECTION : Nettoyer les données founder aussi
       const cleanedData = this.cleanDataForFirestore(founderData);
       
-      this.logger.log('📝 Founder data to be saved (cleaned):', JSON.stringify(cleanedData, null, 2));
+      this.logger.log('Founder data to be saved (cleaned):', JSON.stringify(cleanedData, null, 2));
 
       const docRef = await this.db.collection(this.foundersCollection).add(cleanedData);
       const founder = { ...cleanedData, id: docRef.id };
       
-      this.logger.log(`✅ Founder created successfully: ${founder.name} (ID: ${docRef.id})`);
+      this.logger.log(`Founder created successfully: ${founder.name} (ID: ${docRef.id})`);
       return founder;
     } catch (error) {
-      this.logger.error('❌ Error creating founder:', error);
+      this.logger.error('Error creating founder:', error);
       throw error;
     }
   }

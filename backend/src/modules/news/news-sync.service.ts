@@ -1,4 +1,3 @@
-// backend/src/modules/news/news-sync.service.ts
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { NewsRepository } from './repositories/news.repository';
 import { JebApiService } from '../jeb-api/jeb-api.service';
@@ -14,23 +13,19 @@ export class NewsSyncService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    // Synchronisation au démarrage de l'application
     await this.syncNewsFromJebApi();
   }
 
   /**
    * Synchronise les news de l'API JEB vers Firebase
-   * Évite les doublons en utilisant l'ID JEB comme référence
    */
   async syncNewsFromJebApi(): Promise<void> {
     try {
       this.logger.log('Démarrage de la synchronisation des news...');
       
-      // Récupérer toutes les news de l'API JEB
       const jebNews = await this.jebApiService.getAllNews(0, 1000);
       this.logger.log(`${jebNews.length} news récupérées de l'API JEB`);
 
-      // Récupérer les news existantes dans Firebase
       const existingNews = await this.newsRepo.findAll();
       const existingJebIds = new Set(
         existingNews
@@ -40,14 +35,12 @@ export class NewsSyncService implements OnModuleInit {
 
       this.logger.log(`${existingNews.length} news existantes dans Firebase`);
 
-      // Filtrer les nouvelles news (pas encore en base)
       const newNews = jebNews.filter(news => 
         news.id && !existingJebIds.has(news.id)
       );
 
       this.logger.log(`${newNews.length} nouvelles news à synchroniser`);
 
-      // Insérer les nouvelles news en batch
       let syncedCount = 0;
       for (const news of newNews) {
         try {
@@ -77,13 +70,13 @@ export class NewsSyncService implements OnModuleInit {
       location: jebNews.location || '',
       news_date: jebNews.news_date,
       startup_id: jebNews.startup_id,
-      jebId: jebNews.id, // Référence vers l'ID JEB pour éviter les doublons
-      syncedAt: new Date().toISOString(), // Timestamp de synchronisation
+      jebId: jebNews.id, 
+      syncedAt: new Date().toISOString(),
     };
   }
 
   /**
-   * Synchronisation manuelle (utile pour un endpoint d'admin)
+   * Synchronisation manuelle 
    */
   async manualSync(): Promise<{ 
     success: boolean; 
@@ -122,7 +115,6 @@ export class NewsSyncService implements OnModuleInit {
     const syncedFromJeb = allNews.filter(news => news.jebId).length;
     const localOnly = allNews.length - syncedFromJeb;
 
-    // Trouver la dernière date de sync
     const newsWithSyncDate = allNews
       .filter(news => news.syncedAt)
       .sort((a, b) => new Date(b.syncedAt!).getTime() - new Date(a.syncedAt!).getTime());

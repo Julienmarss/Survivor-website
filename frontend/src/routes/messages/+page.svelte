@@ -48,7 +48,6 @@
 
     // Configuration API
     const API_BASE = `${import.meta.env.PUBLIC_APIURL || 'http://localhost:3000'}/api`;
-    // Important: le backend WebSocket écoute sur le namespace /api/messaging
     const WS_URL = `${import.meta.env.PUBLIC_APIURL || 'http://localhost:3000'}/api/messaging`;
 
     let unsubscribeUser;
@@ -247,7 +246,7 @@
                 userId: currentUser.id,
                 userName: currentUser.firstName || currentUser.name || currentUser.email
             },
-            transports: ['websocket'], // éviter le fallback long-polling
+            transports: ['websocket'],
             reconnection: true,
             reconnectionAttempts: 10,
             reconnectionDelay: 500,
@@ -256,17 +255,17 @@
 
         socket.on('connect', () => {
             isConnected.set(true);
-            console.log('✅ Connecté au WebSocket');
+            console.log('Connecté au WebSocket');
         });
 
         socket.on('disconnect', (reason) => {
             isConnected.set(false);
-            console.log('❌ Déconnecté du WebSocket:', reason);
+            console.log('Déconnecté du WebSocket:', reason);
         });
 
         socket.on('connect_error', (error) => {
             isConnected.set(false);
-            console.error('❌ Erreur de connexion WebSocket:', error);
+            console.error('Erreur de connexion WebSocket:', error);
         });
 
         socket.on('new_message', (message) => {
@@ -420,13 +419,13 @@
 
     function getFileIcon(file) {
         const type = file.type;
-        if (type.startsWith('image/')) return '🖼️';
-        if (type.startsWith('video/')) return '🎥';
-        if (type.startsWith('audio/')) return '🎵';
-        if (type.includes('pdf')) return '📄';
-        if (type.includes('document') || type.includes('word')) return '📝';
-        if (type.includes('spreadsheet') || type.includes('excel')) return '📊';
-        return '📎';
+        if (type.startsWith('image/')) return '';
+        if (type.startsWith('video/')) return '';
+        if (type.startsWith('audio/')) return '';
+        if (type.includes('pdf')) return '';
+        if (type.includes('document') || type.includes('word')) return '';
+        if (type.includes('spreadsheet') || type.includes('excel')) return '';
+        return '';
     }
 
     async function sendAttachments() {
@@ -856,7 +855,7 @@
     /* Custom messaging layout using Tailwind utilities where possible */
     .messaging-container {
         position: fixed;
-        top: 64px; /* Height of header */
+        top: 64px;
         left: 0;
         right: 0;
         bottom: 0;

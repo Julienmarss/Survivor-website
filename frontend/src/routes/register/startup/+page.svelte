@@ -1,4 +1,3 @@
-<!-- frontend/src/routes/register/startup/+page.svelte -->
 <script>
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';

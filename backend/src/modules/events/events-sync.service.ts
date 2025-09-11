@@ -1,4 +1,3 @@
-// backend/src/modules/events/events-sync.service.ts
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { EventsRepository } from './repositories/events.repository';
 import { JebApiService } from '../jeb-api/jeb-api.service';
@@ -14,23 +13,16 @@ export class EventsSyncService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    // Synchronisation au démarrage de l'application
     await this.syncEventsFromJebApi();
   }
 
-  /**
-   * Synchronise les events de l'API JEB vers Firebase
-   * Évite les doublons en utilisant l'ID JEB comme référence
-   */
   async syncEventsFromJebApi(): Promise<void> {
     try {
       this.logger.log('Démarrage de la synchronisation des events...');
       
-      // Récupérer tous les events de l'API JEB
       const jebEvents = await this.jebApiService.getAllEvents(0, 1000);
       this.logger.log(`${jebEvents.length} events récupérés de l'API JEB`);
 
-      // Récupérer les events existants dans Firebase
       const existingEvents = await this.eventsRepo.findAll();
       const existingJebIds = new Set(
         existingEvents
@@ -40,14 +32,12 @@ export class EventsSyncService implements OnModuleInit {
 
       this.logger.log(`${existingEvents.length} events existants dans Firebase`);
 
-      // Filtrer les nouveaux events (pas encore en base)
       const newEvents = jebEvents.filter(event => 
         event.id && !existingJebIds.has(event.id)
       );
 
       this.logger.log(`${newEvents.length} nouveaux events à synchroniser`);
 
-      // Insérer les nouveaux events en batch
       let syncedCount = 0;
       for (const event of newEvents) {
         try {
@@ -66,9 +56,7 @@ export class EventsSyncService implements OnModuleInit {
     }
   }
 
-  /**
-   * Transforme un event JEB en format Firebase
-   */
+
   private transformJebEventToFirebase(jebEvent: IJebEvent): Partial<IJebEvent> {
     return {
       name: jebEvent.name,
@@ -77,15 +65,12 @@ export class EventsSyncService implements OnModuleInit {
       location: jebEvent.location || '',
       dates: jebEvent.dates,
       target_audience: jebEvent.target_audience || '',
-      jebId: jebEvent.id, // Référence vers l'ID JEB pour éviter les doublons
-      syncedAt: new Date().toISOString(), // Timestamp de synchronisation
-      source: 'jeb-synced', // Source de l'event
+      jebId: jebEvent.id,
+      syncedAt: new Date().toISOString(),
+      source: 'jeb-synced',
     };
   }
 
-  /**
-   * Synchronisation manuelle (utile pour un endpoint d'admin)
-   */
   async manualSync(): Promise<{ 
     success: boolean; 
     message: string; 
@@ -110,9 +95,7 @@ export class EventsSyncService implements OnModuleInit {
     }
   }
 
-  /**
-   * Statistiques de synchronisation
-   */
+
   async getSyncStats(): Promise<{
     totalEvents: number;
     syncedFromJeb: number;
@@ -123,7 +106,6 @@ export class EventsSyncService implements OnModuleInit {
     const syncedFromJeb = allEvents.filter(event => event.jebId).length;
     const localOnly = allEvents.length - syncedFromJeb;
 
-    // Trouver la dernière date de sync
     const eventsWithSyncDate = allEvents
       .filter(event => event.syncedAt)
       .sort((a, b) => new Date(b.syncedAt!).getTime() - new Date(a.syncedAt!).getTime());

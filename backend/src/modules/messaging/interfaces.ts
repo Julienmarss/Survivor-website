@@ -3,7 +3,7 @@ export type ConversationType = 'direct' | 'group';
 export interface ConversationParticipant {
     userId: string;
     userName?: string;
-    lastReadAt?: string; // ISO
+    lastReadAt?: string;
 }
 
 export interface Conversation {
@@ -11,8 +11,8 @@ export interface Conversation {
     type: ConversationType;
     name?: string | null;
     participants: ConversationParticipant[];
-    createdAt: string;  // ISO
-    updatedAt: string;  // ISO
+    createdAt: string;
+    updatedAt: string;
     lastMessage?: MessageSummary | null;
     lastMessageAt?: string | null;
 }
@@ -23,7 +23,7 @@ export interface MessageSummary {
     senderName?: string;
     content: string;
     messageType: 'text' | 'image' | 'file';
-    createdAt: string; // ISO
+    createdAt: string;
 }
 
 export interface Message extends MessageSummary {

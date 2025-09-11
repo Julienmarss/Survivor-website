@@ -1,4 +1,3 @@
-// backend/src/modules/events/events.service.ts
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { EventsRepository } from './repositories/events.repository';
 import { IJebEvent } from './interfaces/events.interface';
@@ -11,7 +10,6 @@ export class EventsService {
     private readonly eventsRepo: EventsRepository,
   ) {}
 
-  // CRUD Operations avec gestion d'erreurs améliorée
   async findAll(): Promise<Array<IJebEvent & { firebaseId?: string }>> {
     try {
       this.logger.log('Fetching all events');
@@ -45,7 +43,6 @@ export class EventsService {
     try {
       this.logger.log('Creating event', { name: event.name, eventType: event.event_type });
       
-      // Validation des champs obligatoires
       if (!event.name) {
         throw new Error('Name is required');
       }
@@ -59,7 +56,6 @@ export class EventsService {
         throw new Error('Dates are required');
       }
 
-      // Préparation des données avec valeurs par défaut
       const eventData: Partial<IJebEvent> = {
         ...event,
         source: event.source || 'local',
@@ -86,7 +82,6 @@ export class EventsService {
         throw new NotFoundException('Event ID is required');
       }
 
-      // Vérifier que l'event existe avant la mise à jour
       await this.findById(firebaseId);
 
       const result = await this.eventsRepo.update(firebaseId, event);
@@ -106,7 +101,6 @@ export class EventsService {
         throw new NotFoundException('Event ID is required');
       }
 
-      // Vérifier que l'event existe avant la suppression
       await this.findById(firebaseId);
 
       const result = await this.eventsRepo.delete(firebaseId);
@@ -118,7 +112,6 @@ export class EventsService {
     }
   }
 
-  // Méthodes utilitaires avec gestion d'erreurs
   async getEventsByType(eventType: string): Promise<Array<IJebEvent & { firebaseId?: string }>> {
     try {
       this.logger.log(`Fetching events by type: ${eventType}`);
@@ -194,7 +187,6 @@ export class EventsService {
     }
   }
 
-  // Statistiques avec gestion d'erreurs
   async getStats(): Promise<{
     total: number;
     eventTypes: Array<{ name: string; count: number }>;
@@ -216,7 +208,6 @@ export class EventsService {
     }
   }
 
-  // Méthodes de validation utilitaires
   private validateEventData(event: Partial<IJebEvent>): void {
     const errors: string[] = [];
 

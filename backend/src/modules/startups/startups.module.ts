@@ -8,7 +8,7 @@ import { AnalyticsModule } from '../analystics/analytics.module';
 @Module({
   imports: [
     JebApiModule, 
-    AnalyticsModule  // ← AJOUT CRUCIAL !
+    AnalyticsModule
   ],
   controllers: [StartupsController],
   providers: [StartupsService, StartupRepository],

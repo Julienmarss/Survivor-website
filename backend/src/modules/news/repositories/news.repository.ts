@@ -1,4 +1,3 @@
-// backend/src/modules/news/repositories/news.repository.ts
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { FirebaseConfigService } from '../../../config/firebase.config';
 import { IJebNews } from '../interfaces/news.interface';
@@ -48,7 +47,6 @@ export class NewsRepository {
 
   async create(news: Partial<IJebNews>): Promise<IJebNews & { firebaseId: string }> {
     try {
-      // VALIDATION: Vérifier les champs obligatoires
       if (!news.title) {
         throw new Error('Title is required');
       }
@@ -67,7 +65,6 @@ export class NewsRepository {
         syncedAt: news.syncedAt || new Date().toISOString(),
       };
 
-      // CORRECTION: Supprimer les champs undefined pour Firebase
       const cleanedData = {};
       Object.keys(newsData).forEach(key => {
         if (newsData[key] !== undefined && newsData[key] !== null) {
@@ -79,7 +76,6 @@ export class NewsRepository {
 
       const docRef = await this.firestore.collection(this.collection).add(cleanedData);
       
-      // CORRECTION: Récupérer les données créées pour s'assurer de la cohérence
       const created = await docRef.get();
       
       if (!created.exists) {
@@ -103,7 +99,6 @@ export class NewsRepository {
     try {
       const docRef = this.firestore.collection(this.collection).doc(firebaseId);
       
-      // Vérifier que le document existe avant la mise à jour
       const existingDoc = await docRef.get();
       if (!existingDoc.exists) {
         throw new NotFoundException(`News with ID ${firebaseId} not found`);
@@ -114,7 +109,6 @@ export class NewsRepository {
         updated_at: new Date().toISOString(),
       };
 
-      // CORRECTION: Supprimer les champs undefined pour Firebase
       const cleanedUpdateData = {};
       Object.keys(updateData).forEach(key => {
         if (updateData[key] !== undefined && updateData[key] !== null) {
@@ -126,7 +120,6 @@ export class NewsRepository {
 
       await docRef.update(cleanedUpdateData);
       
-      // Récupérer les données mises à jour
       const updated = await docRef.get();
       if (!updated.exists) {
         throw new Error('Document was deleted during update');
@@ -166,7 +159,6 @@ export class NewsRepository {
     }
   }
 
-  // Méthodes de recherche étendues
   async findByCategory(category: string): Promise<Array<IJebNews & { firebaseId?: string }>> {
     try {
       const snapshot = await this.firestore
@@ -223,8 +215,6 @@ export class NewsRepository {
 
   async search(query: string): Promise<Array<IJebNews & { firebaseId?: string }>> {
     try {
-      // Firebase ne supporte pas la recherche full-text native,
-      // donc on récupère tout et on filtre côté application
       const snapshot = await this.firestore
         .collection(this.collection)
         .orderBy('news_date', 'desc')
@@ -255,7 +245,7 @@ export class NewsRepository {
     locations: Array<{ name: string; count: number }>;
     sources: Array<{ name: string; count: number }>;
     featured: number;
-    recent: number; // Last 30 days
+    recent: number;
   }> {
     try {
       const snapshot = await this.firestore.collection(this.collection).get();

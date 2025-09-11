@@ -52,11 +52,11 @@
       <div>
         <h4 class="text-lg font-semibold mb-6 font-['Montserrat']">Liens rapides</h4>
         <ul class="space-y-3">
-          <li><a href="#" class="text-gray-300 hover:text-[#c174f2] transition-colors duration-300 font-['Open_Sans']">À propos</a></li>
-          <li><a href="#" class="text-gray-300 hover:text-[#c174f2] transition-colors duration-300 font-['Open_Sans']">Nos projets</a></li>
-          <li><a href="#" class="text-gray-300 hover:text-[#c174f2] transition-colors duration-300 font-['Open_Sans']">Success stories</a></li>
-          <li><a href="#" class="text-gray-300 hover:text-[#c174f2] transition-colors duration-300 font-['Open_Sans']">Actualités & événements</a></li>
-          <li><a href="#" class="text-gray-300 hover:text-[#c174f2] transition-colors duration-300 font-['Open_Sans']">Contact</a></li>
+          <li><a href="/about" class="text-gray-300 hover:text-[#c174f2] transition-colors duration-300 font-['Open_Sans']">À propos</a></li>
+          <li><a href="/projects" class="text-gray-300 hover:text-[#c174f2] transition-colors duration-300 font-['Open_Sans']">Nos projets</a></li>
+          <li><a href="/events" class="text-gray-300 hover:text-[#c174f2] transition-colors duration-300 font-['Open_Sans']">Evénements</a></li>
+          <li><a href="/news" class="text-gray-300 hover:text-[#c174f2] transition-colors duration-300 font-['Open_Sans']">Actualités</a></li>
+          <li><a href="/messages" class="text-gray-300 hover:text-[#c174f2] transition-colors duration-300 font-['Open_Sans']">Messagerie</a></li>
         </ul>
       </div>
 

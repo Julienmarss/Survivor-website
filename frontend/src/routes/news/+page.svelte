@@ -6,7 +6,7 @@
   import ErrorMessage from '$lib/components/ErrorMessage.svelte';
   import { writable } from 'svelte/store';
 
-  // Interface Frontend (ce que reçoit le frontend du backend)
+  // Interface Frontend 
   interface NewsFromBackend {
     firebaseId: string;
     title: string;
@@ -50,7 +50,6 @@
   let editing = false;
 
   const API_BASE = import.meta.env.PUBLIC_APIURL ?? 'http://localhost:3000';
-  // ✅ CORRECTION: Ajouter le prefix /api/
   const API_URL = `${API_BASE}/api/news`;
 
   async function fetchNews() {
@@ -58,7 +57,7 @@
     error.set(null);
     
     try {
-      console.log(`🔄 Fetching from: ${API_URL}`);
+      console.log(`Fetching from: ${API_URL}`);
       const res = await fetch(API_URL);
       
       if (!res.ok) {
@@ -225,8 +224,8 @@
   }
 
   onMount(() => {
-    console.log('🔧 API_BASE:', API_BASE);
-    console.log('🔧 API_URL:', API_URL);
+    console.log('API_BASE:', API_BASE);
+    console.log('API_URL:', API_URL);
     fetchNews();
   });
 </script>

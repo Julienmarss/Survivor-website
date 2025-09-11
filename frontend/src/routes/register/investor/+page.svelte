@@ -1,4 +1,3 @@
-<!-- frontend/src/routes/register/investor/+page.svelte -->
 <script>
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
@@ -188,18 +187,16 @@
     if (!validateStep(currentStep)) return;
 
     isSubmitting = true;
-    errors = {}; // Reset errors
+    errors = {}; 
 
     try {
       console.log('Données du formulaire investisseur:', formData);
       
-      // ✅ CORRECTION : Appel du vrai backend via userStore
       const result = await userStore.registerInvestor(formData);
       
       if (result.success) {
         console.log('Investor registration successful:', result.user);
         
-        // Redirection vers login avec message de succès
         goto('/login?registered=true&type=investor');
       } else {
         // Gestion des erreurs spécifiques

@@ -29,14 +29,12 @@ export class MessagingGateway implements OnGatewayConnection, OnGatewayDisconnec
             if (!token) throw new Error('Missing token');
             const payload: any = jwt.verify(token, process.env.JWT_SECRET!);
             (client as any).user = { id: payload.sub || payload.id, name: payload.name, email: payload.email };
-            // ok
         } catch (e) {
             client.disconnect(true);
         }
     }
 
     handleDisconnect(client: Socket) {
-        // noop
     }
 
     @SubscribeMessage('join_conversation')
@@ -77,7 +75,6 @@ export class MessagingGateway implements OnGatewayConnection, OnGatewayDisconnec
         });
     }
 
-    // Utilitaire à appeler depuis Controller si tu veux pousser l'event en temps réel
     emitNewMessage(message: any) {
         this.server.to(message.conversationId).emit('new_message', message);
     }

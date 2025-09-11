@@ -1,18 +1,13 @@
-// frontend/src/lib/stores/userStore.js
 import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
 import { authApi } from '../services/authApi.js';
 
-// Clé pour le localStorage
 const USER_STORAGE_KEY = 'jeb_user_data';
 
-// Store initial
 const initialUser = null;
 
-// Créer le store writable
 const { subscribe, set, update } = writable(initialUser);
 
-// Fonctions utilitaires pour le localStorage (seulement côté client)
 const storage = {
     saveUser: (userData) => {
         if (!browser) return;
@@ -51,7 +46,6 @@ const storage = {
 
 // Fonctions du store
 const userStore = {
-    // Méthode de souscription standard
     subscribe,
 
     /**
@@ -65,25 +59,20 @@ const userStore = {
 
         if (savedUser && token) {
             try {
-                // Vérifier si le token est toujours valide
                 const response = await authApi.getCurrentUser();
                 
                 if (response.success && response.data.user) {
-                    // Mettre à jour avec les données fraîches
                     set(response.data.user);
                     storage.saveUser(response.data.user);
                     console.log('User session restored:', response.data.user);
                 } else {
-                    // Token invalide, nettoyer
                     this.logout();
                 }
             } catch (error) {
                 console.warn('Failed to restore user session:', error);
-                // Token invalide, nettoyer
                 this.logout();
             }
         } else if (savedUser) {
-            // Données utilisateur sans token valide (cas d'erreur)
             set(savedUser);
         }
     },
@@ -96,10 +85,8 @@ const userStore = {
             const response = await authApi.login({ email, password });
 
             if (response.success && response.data.user && response.data.accessToken) {
-                // Sauvegarder les données
                 storage.saveUser(response.data.user);
                 
-                // Mettre à jour le store
                 set(response.data.user);
 
                 console.log('Utilisateur connecté:', response.data.user);
@@ -140,23 +127,23 @@ const userStore = {
      */
 async registerStartup(startupData) {
   try {
-    console.log('🚀 UserStore: Starting startup registration...');
-    console.log('📝 UserStore: Data to send:', startupData);
+    console.log('UserStore: Starting startup registration...');
+    console.log('UserStore: Data to send:', startupData);
     
     const response = await authApi.registerStartup(startupData);
-    console.log('📡 UserStore: API Response:', response);
+    console.log('UserStore: API Response:', response);
 
     if (response.success && response.data.user && response.data.accessToken) {
       storage.saveUser(response.data.user);
       set(response.data.user);
-      console.log('✅ UserStore: Startup registration successful');
+      console.log('UserStore: Startup registration successful');
       return { success: true, user: response.data.user };
     } else {
-      console.error('❌ UserStore: Registration failed - Invalid response:', response);
+      console.error('UserStore: Registration failed - Invalid response:', response);
       return { success: false, error: response.message || 'Registration failed' };
     }
   } catch (error) {
-    console.error('💥 UserStore: Registration error:', error);
+    console.error('UserStore: Registration error:', error);
     return { success: false, error: error.message || 'Registration failed' };
   }
 },
@@ -213,7 +200,6 @@ async registerStartup(startupData) {
             console.warn('Logout API call failed:', error);
         }
 
-        // Nettoyer le localStorage et le store
         storage.clear();
         set(null);
         console.log('Utilisateur déconnecté');
@@ -276,7 +262,6 @@ async registerStartup(startupData) {
                 storage.saveUser(response.data.user);
                 set(response.data.user);
             } else {
-                // Token invalide, déconnecter
                 this.logout();
             }
         } catch (error) {
@@ -308,5 +293,4 @@ async registerStartup(startupData) {
 
 export { userStore };
 
-// Export par défaut pour faciliter l'import
 export default userStore;

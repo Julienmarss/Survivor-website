@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { get } from "svelte/store";
-  import { eventsList } from "./path/to/your/store"; // adapte le chemin
+  import { eventsList } from "./path/to/your/store";
 
   import { Calendar } from "@fullcalendar/core";
   import dayGridPlugin from "@fullcalendar/daygrid";
@@ -13,11 +13,11 @@
     const calendar = new Calendar(calendarEl, {
       plugins: [dayGridPlugin, interactionPlugin],
       initialView: "dayGridMonth",
-      locale: "fr", // calendrier en français
+      locale: "fr",
       events: get(eventsList).map((event) => ({
         id: event.firebaseId,
         title: event.name,
-        start: event.dates, // ⚠️ doit être ISO (ex: "2025-09-10T10:00:00")
+        start: event.dates,
         extendedProps: {
           location: event.location,
           description: event.description,
@@ -25,7 +25,7 @@
       })),
       eventClick(info) {
         alert(
-          `📌 ${info.event.title}\n📍 ${info.event.extendedProps.location}\n📝 ${info.event.extendedProps.description || "Pas de description"}`
+          ` ${info.event.title}\n ${info.event.extendedProps.location}\n ${info.event.extendedProps.description || "Pas de description"}`
         );
       },
     });

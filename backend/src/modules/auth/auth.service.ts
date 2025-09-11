@@ -1,9 +1,7 @@
-// backend/src/modules/auth/auth.service.ts - Version corrigée
-
 import { Injectable, Logger, UnauthorizedException, ConflictException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UserRepository } from './repositories/user.repository';
-import { StartupRepository } from '../startups/repositories/startups.repository'; // AJOUT
+import { StartupRepository } from '../startups/repositories/startups.repository';
 import { IUser, IAuthResponse, UserRole } from './interfaces/user.interface';
 import { LoginDto, RegisterUserDto, RegisterStartupDto, RegisterInvestorDto } from './dto/auth.dto';
 import * as bcrypt from 'bcrypt';
@@ -15,7 +13,7 @@ export class AuthService {
   constructor(
     private readonly userRepository: UserRepository,
     private readonly jwtService: JwtService,
-    private readonly startupRepository: StartupRepository, // AJOUT
+    private readonly startupRepository: StartupRepository,
   ) {}
 
   /**
@@ -23,19 +21,16 @@ export class AuthService {
    */
   async registerStartup(registerDto: RegisterStartupDto): Promise<IAuthResponse> {
     try {
-      this.logger.log(`📝 Starting startup registration for: ${registerDto.email}`);
+      this.logger.log(`Starting startup registration for: ${registerDto.email}`);
       
-      // Vérifier si l'utilisateur existe déjà
       const existingUser = await this.userRepository.findByEmail(registerDto.email);
       if (existingUser) {
         throw new ConflictException('User with this email already exists');
       }
 
-      // Hasher le mot de passe
       const hashedPassword = await bcrypt.hash(registerDto.password, 10);
-      this.logger.log('🔐 Password hashed successfully');
+      this.logger.log('Password hashed successfully');
 
-      // Parser teamSize
       let teamSizeNumber: number;
       if (typeof registerDto.teamSize === 'string') {
         const teamSizeMapping: Record<string, number> = {
@@ -50,9 +45,8 @@ export class AuthService {
       } else {
         teamSizeNumber = registerDto.teamSize || 1;
       }
-      this.logger.log(`👥 Team size mapped: ${registerDto.teamSize} -> ${teamSizeNumber}`);
+      this.logger.log(`Team size mapped: ${registerDto.teamSize} -> ${teamSizeNumber}`);
 
-      // Gérer les dates
       let foundingDate: Date;
       if (registerDto.foundingDate) {
         foundingDate = new Date(registerDto.foundingDate);
@@ -61,13 +55,11 @@ export class AuthService {
       } else {
         foundingDate = new Date();
       }
-      this.logger.log(`📅 Founding date: ${foundingDate.toISOString()}`);
+      this.logger.log(`Founding date: ${foundingDate.toISOString()}`);
 
-      // Utiliser stage ou maturity
       const maturity = registerDto.maturity || registerDto.stage || 'MVP';
-      this.logger.log(`📊 Maturity stage: ${maturity}`);
+      this.logger.log(`Maturity stage: ${maturity}`);
 
-      // Préparer les données utilisateur
       const userData: Omit<IUser, 'id' | 'createdAt' | 'updatedAt'> = this.cleanObjectDeep({
         email: registerDto.email,
         password: hashedPassword,
@@ -90,23 +82,19 @@ export class AuthService {
         isEmailVerified: false,
       });
 
-      this.logger.log('👤 Creating user in Firebase...');
+      this.logger.log('Creating user in Firebase...');
       const user = await this.userRepository.createUser(userData);
-      this.logger.log(`✅ User created successfully with ID: ${user.id}`);
-
-      // 🔥 CRÉATION DE LA STARTUP ET DU FOUNDER
-      this.logger.log('🏢 Starting startup creation process...');
+      this.logger.log(`User created successfully with ID: ${user.id}`);
+      this.logger.log('Starting startup creation process...');
       
       try {
-        // Vérifier que le StartupRepository est bien injecté
         if (!this.startupRepository) {
-          throw new Error('❌ StartupRepository is not injected!');
+          throw new Error('StartupRepository is not injected!');
         }
-        this.logger.log('✅ StartupRepository is available');
+        this.logger.log('StartupRepository is available');
 
-        // Préparer les données de la startup
         const startupData = {
-          jeb_id: Math.floor(Math.random() * 1000000), // ID temporaire unique
+          jeb_id: Math.floor(Math.random() * 1000000),
           name: registerDto.companyName,
           legal_status: registerDto.legalStatus || 'SAS',
           address: registerDto.address || '',
@@ -122,34 +110,32 @@ export class AuthService {
           maturity: maturity,
         };
 
-        this.logger.log('🏢 Creating startup with data:', JSON.stringify(startupData, null, 2));
+        this.logger.log('Creating startup with data:', JSON.stringify(startupData, null, 2));
         const startup = await this.startupRepository.create(startupData);
-        this.logger.log(`✅ Startup created successfully with ID: ${startup.id}`);
+        this.logger.log(`Startup created successfully with ID: ${startup.id}`);
 
-        // Créer le founder principal
-        this.logger.log('👨‍💼 Creating founder...');
+        this.logger.log('Creating founder...');
         const founderData = {
-          jeb_id: Math.floor(Math.random() * 1000000), // ID temporaire unique
+          jeb_id: Math.floor(Math.random() * 1000000),
           name: `${registerDto.firstName} ${registerDto.lastName}`,
           startup_id: startup.id!,
           jeb_startup_id: startupData.jeb_id,
         };
 
-        this.logger.log('👨‍💼 Creating founder with data:', JSON.stringify(founderData, null, 2));
+        this.logger.log('Creating founder with data:', JSON.stringify(founderData, null, 2));
         const founder = await this.startupRepository.createFounder(founderData);
-        this.logger.log(`✅ Founder created successfully with ID: ${founder.id}`);
+        this.logger.log(`Founder created successfully with ID: ${founder.id}`);
 
-        this.logger.log(`🎉 Complete startup creation successful:
+        this.logger.log(`Complete startup creation successful:
           - User ID: ${user.id}
           - Startup ID: ${startup.id}
           - Founder ID: ${founder.id}
         `);
 
       } catch (startupError) {
-        this.logger.error('❌ STARTUP CREATION FAILED:', startupError);
+        this.logger.error('STARTUP CREATION FAILED:', startupError);
         this.logger.error('Stack trace:', startupError.stack);
         
-        // Log détaillé de l'erreur
         if (startupError.message) {
           this.logger.error('Error message:', startupError.message);
         }
@@ -157,19 +143,17 @@ export class AuthService {
           this.logger.error('Error code:', startupError.code);
         }
         
-        // ⚠️ Important : On continue quand même l'inscription utilisateur
-        this.logger.warn('🚨 Startup creation failed but user creation succeeded');
+        this.logger.warn('Startup creation failed but user creation succeeded');
       }
 
-      // Générer le token
       const accessToken = this.generateAccessToken(user);
-      this.logger.log('🔑 Access token generated successfully');
+      this.logger.log('Access token generated successfully');
 
-      this.logger.log(`🎉 Startup registration completed for: ${user.email}`);
+      this.logger.log(`Startup registration completed for: ${user.email}`);
       return { user: { ...user, password: undefined }, accessToken };
       
     } catch (error) {
-      this.logger.error('💥 Startup registration completely failed:', error);
+      this.logger.error('Startup registration completely failed:', error);
       this.logger.error('Stack trace:', error.stack);
       throw error;
     }
@@ -186,7 +170,6 @@ export class AuthService {
         throw new ConflictException('User with this email already exists');
       }
 
-      // Hasher le mot de passe
       const hashedPassword = await bcrypt.hash(userData.password, 10);
 
       const userDataClean: Omit<IUser, 'id' | 'createdAt' | 'updatedAt'> = this.cleanObjectDeep({
@@ -195,11 +178,10 @@ export class AuthService {
         firstName: userData.firstName,
         lastName: userData.lastName,
         role: UserRole.USER,
-        age: userData.age || 20, // Âge par défaut pour les étudiants
+        age: userData.age || 20,
         gender: userData.gender || 'prefer_not_to_say',
         isEmailVerified: false,
         
-        // ✅ AJOUT : Support des champs étudiants
         ...(userData as any).school && { school: (userData as any).school },
         ...(userData as any).level && { level: (userData as any).level },
         ...(userData as any).field && { field: (userData as any).field },
@@ -230,10 +212,8 @@ export class AuthService {
         throw new ConflictException('User with this email already exists');
       }
 
-      // Hasher le mot de passe
       const hashedPassword = await bcrypt.hash(registerDto.password, 10);
 
-      // Mapper le type d'investisseur du frontend vers le backend
       const mapInvestorType = (type: string): 'angel' | 'venture_capital' | 'private_equity' | 'corporate' | 'government' => {
         const mapping: Record<string, 'angel' | 'venture_capital' | 'private_equity' | 'corporate' | 'government'> = {
           'Business Angel': 'angel',
@@ -248,11 +228,9 @@ export class AuthService {
         return mapping[type] || 'angel';
       };
 
-      // Parser l'investmentRange si c'est une string
       let investmentRangeData: { min: number; max: number } | undefined;
       if (registerDto.investmentRange) {
         if (typeof registerDto.investmentRange === 'string') {
-          // Parser les fourchettes comme "100K€ - 500K€"
           const parseRange = (rangeStr: string): { min: number; max: number } => {
             const ranges: Record<string, { min: number; max: number }> = {
               'Moins de 10K€': { min: 0, max: 10000 },
@@ -316,7 +294,6 @@ export class AuthService {
         throw new UnauthorizedException('Invalid credentials');
       }
 
-      // Vérifier le mot de passe
       const isPasswordValid = await bcrypt.compare(loginDto.password, user.password);
       if (!isPasswordValid) {
         throw new UnauthorizedException('Invalid credentials');

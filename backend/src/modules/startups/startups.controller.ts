@@ -41,14 +41,12 @@ export class StartupsController {
     @Headers('user-id') userId?: string
   ) {
     try {
-      // Tracker la recherche si il y en a une
       if (search) {
         await this.analyticsService.trackSearch(search, userId);
       }
 
       const result = await this.startupsService.findAll(+page, +limit, sector, search);
       
-      // Enrichir avec les données analytiques pour chaque startup
       const enrichedStartups = await Promise.all(
         result.data.map(async (startup) => {
           const analytics = await this.analyticsService.getStartupAnalytics(startup.id!);
@@ -63,7 +61,6 @@ export class StartupsController {
         })
       );
 
-      // Appliquer le tri si demandé
       if (sortBy === 'views' && enrichedStartups[0]?.analytics) {
         enrichedStartups.sort((a, b) => {
           const aViews = a.analytics?.totalViews || 0;
@@ -92,12 +89,10 @@ export class StartupsController {
     try {
       const sectors = await this.startupsService.getSectors();
       
-      // Enrichir avec des métriques analytiques
       const enrichedSectors = await Promise.all(
         sectors.map(async (sector) => {
-          // Simuler quelques métriques pour chaque secteur
           const avgViews = Math.floor(Math.random() * 500) + 100;
-          const growth = Math.random() * 40 - 20; // Entre -20% et +20%
+          const growth = Math.random() * 40 - 20;
           
           return {
             ...sector,
@@ -141,7 +136,7 @@ export class StartupsController {
         performance: {
           topPerformingSector: exportStats.summary.topPerformingSector,
           avgViewsPerStartup: exportStats.summary.avgViewsPerStartup,
-          trends: kpi.monthlyStats.slice(-3) // 3 derniers mois
+          trends: kpi.monthlyStats.slice(-3)
         },
         insights: {
           fastestGrowingStartups: kpi.trendingStartups.slice(0, 3),
@@ -165,12 +160,10 @@ export class StartupsController {
     try {
       const result = await this.startupsService.syncWithJebApi();
       
-      // Après la synchronisation, on peut générer des données analytiques de test
       if (result.created > 0) {
         try {
           await this.analyticsService.generateTestData();
         } catch (analyticsError) {
-          // Ne pas faire échouer la sync si les analytics échouent
           console.warn('Analytics generation failed:', analyticsError);
         }
       }
@@ -203,7 +196,6 @@ export class StartupsController {
       const kpi = await this.analyticsService.getDashboardKPI();
       const trending = kpi.trendingStartups.slice(0, +limit);
 
-      // Enrichir avec plus de détails
       const enrichedTrending = await Promise.all(
         trending.map(async (startup) => {
           const fullStartup = await this.startupsService.findById(startup.id);
@@ -216,7 +208,7 @@ export class StartupsController {
             contact: fullStartup?.email,
             maturity: fullStartup?.maturity,
             detailedAnalytics: analytics ? {
-              viewsHistory: analytics.viewsHistory.slice(-7), // 7 derniers jours
+              viewsHistory: analytics.viewsHistory.slice(-7),
               conversionRate: analytics.conversionRate,
               shareCount: analytics.shareCount
             } : null
@@ -249,7 +241,6 @@ export class StartupsController {
     @Headers('user-role') userRole?: string
   ) {
     try {
-      // Tracker la vue
       await this.analyticsService.trackStartupView(id, userId, userRole);
 
       const startup = await this.startupsService.findById(id);
@@ -258,7 +249,6 @@ export class StartupsController {
         throw new HttpException('Startup not found', HttpStatus.NOT_FOUND);
       }
 
-      // Récupérer les analytics détaillées
       const analytics = await this.analyticsService.getStartupAnalytics(id);
       
       const enrichedStartup = {
@@ -271,7 +261,7 @@ export class StartupsController {
           conversionRate: analytics.conversionRate,
           lastViewDate: analytics.lastViewDate,
           viewsHistory: analytics.viewsHistory,
-          engagementTrend: analytics.viewsHistory.slice(-7).reduce((sum, day) => sum + day.views, 0) // Somme des 7 derniers jours
+          engagementTrend: analytics.viewsHistory.slice(-7).reduce((sum, day) => sum + day.views, 0)
         } : null,
         recommendations: await this.getStartupRecommendations(startup),
         similarStartups: await this.getSimilarStartups(startup.sector, id)
@@ -300,16 +290,13 @@ export class StartupsController {
       await this.analyticsService.trackStartupContact(id, userId, userRole);
       return ApiResponse.success('Contact interaction tracked');
     } catch (error) {
-      // Ne pas faire échouer si le tracking échoue
       return ApiResponse.success('Contact tracking attempted');
     }
   }
 
-  // Méthodes privées utilitaires
   private async getStartupRecommendations(startup: any): Promise<string[]> {
     const recommendations = [];
     
-    // Basé sur le secteur et la maturité
     if (startup.maturity === 'early') {
       recommendations.push('Consider seed funding opportunities');
       recommendations.push('Focus on product-market fit validation');
@@ -318,7 +305,6 @@ export class StartupsController {
       recommendations.push('Scale team and operations');
     }
 
-    // Basé sur les besoins
     if (startup.needs?.includes('funding')) {
       recommendations.push('Connect with relevant investors in ' + startup.sector);
     }
@@ -327,7 +313,7 @@ export class StartupsController {
       recommendations.push('Join sector-specific mentorship programs');
     }
 
-    return recommendations.slice(0, 3); // Max 3 recommandations
+    return recommendations.slice(0, 3);
   }
 
   private async getSimilarStartups(sector: string, excludeId: string): Promise<any[]> {

@@ -7,7 +7,6 @@ export class SendMessageDto {
     @IsIn(['text', 'image', 'file'])
     messageType: 'text' | 'image' | 'file';
 
-    // optionnels pour pièces jointes (à étendre plus tard)
     @IsOptional() @IsString() attachmentUrl?: string;
     @IsOptional() @IsString() attachmentName?: string;
 }

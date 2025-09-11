@@ -1,4 +1,3 @@
-// backend/src/modules/news/news.controller.ts - VERSION CORRIGÉE
 import { 
   Controller, 
   Get, 
@@ -19,7 +18,7 @@ import { IJebNews } from './interfaces/news.interface';
 import { CreateNewsDto, UpdateNewsDto } from './dto/news.dto';
 
 @ApiTags('News')
-@Controller('news') // Ceci donne /api/news avec le prefix global
+@Controller('news')
 export class NewsController {
   private readonly logger = new Logger(NewsController.name);
 
@@ -46,7 +45,6 @@ export class NewsController {
     this.logger.log('GET /api/news called', { category, featured, startupId, search });
     
     try {
-      // Filtres spécifiques
       if (search) {
         return this.newsService.searchNews(search);
       }
@@ -63,12 +61,11 @@ export class NewsController {
         return this.newsService.getNewsByStartup(startupId);
       }
 
-      // Toutes les news
       const result = await this.newsService.findAll();
-      this.logger.log(`✅ GET /api/news success - ${result.length} news returned`);
+      this.logger.log(`GET /api/news success - ${result.length} news returned`);
       return result;
     } catch (error) {
-      this.logger.error('❌ GET /api/news failed', error);
+      this.logger.error('GET /api/news failed', error);
       throw error;
     }
   }
@@ -87,18 +84,17 @@ export class NewsController {
   async getNewsById(@Param('id') id: string) {
     this.logger.log(`GET /api/news/${id} called`);
     
-    // VALIDATION: Vérifier que l'ID n'est pas undefined/null/empty
     if (!id || id === 'undefined' || id === 'null' || id.trim() === '') {
-      this.logger.error(`❌ GET /api/news/${id} - Invalid ID`);
+      this.logger.error(`GET /api/news/${id} - Invalid ID`);
       throw new BadRequestException('ID de la news invalide ou manquant');
     }
 
     try {
       const result = await this.newsService.findById(id);
-      this.logger.log(`✅ GET /api/news/${id} success`);
+      this.logger.log(`GET /api/news/${id} success`);
       return result;
     } catch (error) {
-      this.logger.error(`❌ GET /api/news/${id} failed`, error);
+      this.logger.error(`GET /api/news/${id} failed`, error);
       throw new NotFoundException(`News avec l'ID ${id} non trouvée`);
     }
   }
@@ -111,7 +107,6 @@ export class NewsController {
     this.logger.log('POST /api/news called', createNewsDto);
     
     try {
-      // VALIDATION: Vérifier les champs obligatoires
       if (!createNewsDto.title || createNewsDto.title.trim() === '') {
         throw new BadRequestException('Le titre est obligatoire');
       }
@@ -122,7 +117,6 @@ export class NewsController {
         throw new BadRequestException('La localisation est obligatoire');
       }
 
-      // Mapping corrigé entre DTO et Interface
       const newsData: Partial<IJebNews> = {
         title: createNewsDto.title.trim(),
         description: createNewsDto.description?.trim() || '',
@@ -132,15 +126,15 @@ export class NewsController {
         news_date: createNewsDto.publishedAt || new Date().toISOString(),
         startup_id: createNewsDto.startupId ? parseInt(createNewsDto.startupId) : undefined,
         featured: createNewsDto.featured || false,
-        source: 'local', // Marquer comme news locale
+        source: 'local',
       };
 
-      this.logger.log('📝 Creating news with data:', newsData);
+      this.logger.log('Creating news with data:', newsData);
       const result = await this.newsService.createNews(newsData);
-      this.logger.log(`✅ POST /api/news success - Created news with ID: ${result.firebaseId}`);
+      this.logger.log(`POST /api/news success - Created news with ID: ${result.firebaseId}`);
       return result;
     } catch (error) {
-      this.logger.error('❌ POST /api/news failed', error);
+      this.logger.error('POST /api/news failed', error);
       throw new BadRequestException(`Erreur lors de la création: ${error.message}`);
     }
   }
@@ -156,14 +150,12 @@ export class NewsController {
   ) {
     this.logger.log(`PUT /api/news/${id} called`, updateNewsDto);
     
-    // VALIDATION: Vérifier que l'ID n'est pas undefined/null/empty
     if (!id || id === 'undefined' || id === 'null' || id.trim() === '') {
-      this.logger.error(`❌ PUT /api/news/${id} - Invalid ID`);
+      this.logger.error(`PUT /api/news/${id} - Invalid ID`);
       throw new BadRequestException('ID de la news invalide ou manquant');
     }
 
     try {
-      // Mapping plus robuste et vérification des champs
       const newsData: Partial<IJebNews> = {};
       
       if (updateNewsDto.title !== undefined && updateNewsDto.title.trim() !== '') {
@@ -191,17 +183,16 @@ export class NewsController {
         newsData.featured = updateNewsDto.featured;
       }
 
-      // Vérifier qu'il y a au moins une donnée à mettre à jour
       if (Object.keys(newsData).length === 0) {
         throw new BadRequestException('Aucune donnée à mettre à jour fournie');
       }
 
-      this.logger.log(`📝 Updating news ${id} with data:`, newsData);
+      this.logger.log(`Updating news ${id} with data:`, newsData);
       const result = await this.newsService.updateNews(id, newsData);
-      this.logger.log(`✅ PUT /api/news/${id} success`);
+      this.logger.log(`PUT /api/news/${id} success`);
       return result;
     } catch (error) {
-      this.logger.error(`❌ PUT /api/news/${id} failed`, error);
+      this.logger.error(`PUT /api/news/${id} failed`, error);
       if (error.status === 404) {
         throw new NotFoundException(`News avec l'ID ${id} non trouvée`);
       }
@@ -217,18 +208,17 @@ export class NewsController {
   async deleteNews(@Param('id') id: string) {
     this.logger.log(`DELETE /api/news/${id} called`);
     
-    // VALIDATION: Vérifier que l'ID n'est pas undefined/null/empty
     if (!id || id === 'undefined' || id === 'null' || id.trim() === '') {
-      this.logger.error(`❌ DELETE /api/news/${id} - Invalid ID`);
+      this.logger.error(`DELETE /api/news/${id} - Invalid ID`);
       throw new BadRequestException('ID de la news invalide ou manquant');
     }
 
     try {
       const result = await this.newsService.deleteNews(id);
-      this.logger.log(`✅ DELETE /api/news/${id} success`);
+      this.logger.log(`DELETE /api/news/${id} success`);
       return result;
     } catch (error) {
-      this.logger.error(`❌ DELETE /api/news/${id} failed`, error);
+      this.logger.error(`DELETE /api/news/${id} failed`, error);
       if (error.status === 404) {
         throw new NotFoundException(`News avec l'ID ${id} non trouvée`);
       }

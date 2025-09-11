@@ -24,7 +24,7 @@ import { SendMessageDto } from './dto/send-message.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
-@Controller('messaging') // <-- PAS "api/messaging" car le prefix /api est mis dans main.ts
+@Controller('messaging')
 @UseGuards(JwtAuthGuard)
 export class MessagingController {
     constructor(
@@ -73,7 +73,6 @@ export class MessagingController {
             dto,
         );
         
-        // Émettre le nouveau message via WebSocket à tous les participants
         this.gateway.emitNewMessage(newMessage);
         
         return newMessage;
@@ -89,7 +88,7 @@ export class MessagingController {
             },
         }),
         limits: {
-            fileSize: 10 * 1024 * 1024, // 10MB
+            fileSize: 10 * 1024 * 1024,
         },
     }))
     async sendAttachment(
@@ -120,7 +119,6 @@ export class MessagingController {
             messageData,
         );
         
-        // Émettre le nouveau message via WebSocket à tous les participants
         this.gateway.emitNewMessage(newMessage);
         
         return newMessage;
@@ -143,7 +141,6 @@ export class MessagingController {
         return { status: 'ok' };
     }
 
-    // Utilisateurs pour la recherche côté front
     @Get('users')
     async listUsers(@Req() req: any) {
         const convs = await this.service.listConversations(req.user.sub);

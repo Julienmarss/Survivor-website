@@ -1,7 +1,6 @@
 import { writable } from 'svelte/store';
 
 
-//Fichier à supprimer quand on aura fait les requêtes côté back-end
 export const projects = writable([
   {
     id: 1,

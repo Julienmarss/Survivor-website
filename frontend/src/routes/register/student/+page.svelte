@@ -147,7 +147,6 @@
     try {
       console.log('Données du formulaire étudiant:', formData);
       
-      // ✅ CORRECTION : Appel du vrai backend via userStore
       const result = await userStore.registerStudent(formData);
       
       if (result.success) {

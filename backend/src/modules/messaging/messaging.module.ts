@@ -8,7 +8,7 @@ import { FirebaseModule } from '../firebase/firebase.module';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
-    imports: [FirebaseModule, AuthModule], // <-- pour JwtService/JwtAuthGuard
+    imports: [FirebaseModule, AuthModule], 
     controllers: [MessagingController],
     providers: [MessagingService, MessagingGateway, ConversationsRepository, MessagesRepository],
     exports: [MessagingService],

@@ -23,7 +23,6 @@ export class MessagesRepository {
     }
 
     async list(convId: string, limit = 50, offset = 0): Promise<Message[]> {
-        // Simple tri par createdAt asc, pagination naïve (à améliorer avec cursors)
         const qs = await this.col(convId)
             .orderBy('createdAt', 'asc')
             .get();
@@ -46,7 +45,6 @@ export class MessagesRepository {
     }
 
     async markRead(convId: string, userId: string): Promise<void> {
-        // Mark all messages in conversation as read by this user
         const snapshot = await this.col(convId).get();
         const batch = this.db.batch();
         
@@ -65,7 +63,6 @@ export class MessagesRepository {
     }
 
     async findConversationIdByMessageId(messageId: string): Promise<string | null> {
-        // Query all conversations to find which one contains this message
         const conversationsSnapshot = await this.db.collection('conversations').get();
         
         for (const convDoc of conversationsSnapshot.docs) {

@@ -1,4 +1,3 @@
-<!-- src/routes/admin/+page.svelte -->
 <script>
     import { onMount } from 'svelte';
     import { userStore } from '$lib/stores/userStore.js';
@@ -8,13 +7,11 @@
     import LoadingSpinner from '../../lib/components/LoadingSpinner.svelte';
     import ErrorMessage from '../../lib/components/ErrorMessage.svelte';
 
-    // États
     let user = null;
     let loading = true;
     let error = null;
     let activeTab = 'overview';
 
-    // Données du dashboard
     let stats = {
         totalStartups: 0,
         totalViews: 0,
@@ -22,18 +19,15 @@
         engagementRate: 0,
         investorInteractions: 0,
         totalFunding: 0,
-        successRate: 85,
+        successRate: 0,
         jobsCreated: 0
     };
 
     let recentStartups = [];
     let topSectors = [];
     let recentActivity = [];
+    let analyticsData = null;
 
-    // Configuration API
-    const API_BASE = `${import.meta.env.PUBLIC_APIURL || 'http://localhost:3000'}/api`;
-
-    // S'abonner au store utilisateur
     userStore.subscribe(value => {
         user = value;
         if (user && !isAdmin(user)) {
@@ -50,37 +44,45 @@
             loading = true;
             error = null;
 
-            // Charger les statistiques générales
             const statsResponse = await fetch(`${API_BASE}/analytics/dashboard`);
-            const statsData = await statsResponse.json();
-
-            if (statsData.success) {
-                stats = { ...stats, ...statsData.data };
+            if (statsResponse.ok) {
+                const statsData = await statsResponse.json();
+                if (statsData.success) {
+                    stats = { ...stats, ...statsData.data };
+                }
             }
 
-            // Charger les startups récentes
-            const startupsResponse = await fetch(`${API_BASE}/startups?limit=5&sort=recent`);
-            const startupsData = await startupsResponse.json();
-
-            if (startupsData.success) {
-                recentStartups = startupsData.data;
+            const startupsResponse = await fetch(`${API_BASE}/startups?limit=5&sortBy=created_at&sortOrder=desc`);
+            if (startupsResponse.ok) {
+                const startupsData = await startupsResponse.json();
+                if (startupsData.success) {
+                    recentStartups = startupsData.data.data || [];
+                }
             }
 
-            // Charger les secteurs populaires
             const sectorsResponse = await fetch(`${API_BASE}/startups/sectors`);
-            const sectorsData = await sectorsResponse.json();
-
-            if (sectorsData.success) {
-                topSectors = sectorsData.slice(0, 5);
+            if (sectorsResponse.ok) {
+                const sectorsData = await sectorsResponse.json();
+                if (sectorsData.success) {
+                    topSectors = (sectorsData.data || []).slice(0, 5);
+                }
             }
 
-            // Simuler l'activité récente (à remplacer par un vrai endpoint)
-            recentActivity = [
-                { type: 'startup_created', message: 'Nouvelle startup ajoutée', time: '2 minutes' },
-                { type: 'view', message: '150 nouvelles vues aujourd\'hui', time: '1 heure' },
-                { type: 'investor', message: 'Nouvel investisseur inscrit', time: '3 heures' },
-                { type: 'funding', message: 'Levée de fonds: €2.5M', time: '1 jour' }
-            ];
+            const activityResponse = await fetch(`${API_BASE}/analytics/recent-activity?limit=5`);
+            if (activityResponse.ok) {
+                const activityData = await activityResponse.json();
+                if (activityData.success) {
+                    recentActivity = activityData.data || [];
+                }
+            }
+
+            const analyticsResponse = await fetch(`${API_BASE}/analytics/export/stats`);
+            if (analyticsResponse.ok) {
+                const analyticsResult = await analyticsResponse.json();
+                if (analyticsResult.success) {
+                    analyticsData = analyticsResult.data;
+                }
+            }
 
         } catch (err) {
             console.error('Erreur lors du chargement:', err);
@@ -117,16 +119,8 @@
             if (response.ok) {
                 const blob = await response.blob();
                 downloadFile(blob, filename);
+                showSuccessMessage('Export réussi !');
 
-                // Message de succès
-                const toast = document.createElement('div');
-                toast.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
-                toast.textContent = 'Export réussi !';
-                document.body.appendChild(toast);
-
-                setTimeout(() => {
-                    document.body.removeChild(toast);
-                }, 3000);
             } else {
                 throw new Error('Erreur lors de l\'export');
             }
@@ -149,6 +143,17 @@
         URL.revokeObjectURL(url);
     }
 
+    function showSuccessMessage(message) {
+        const toast = document.createElement('div');
+        toast.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+        toast.textContent = message;
+        document.body.appendChild(toast);
+
+        setTimeout(() => {
+            document.body.removeChild(toast);
+        }, 3000);
+    }
+
     function formatNumber(num) {
         if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
         if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
@@ -168,10 +173,23 @@
         loadDashboardData();
     }
 
+    function getActivityIcon(type) {
+        const icons = {
+            'startup_created': 'M12 6v6m0 0v6m0-6h6m-6 0H6',
+            'startup_view': 'M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z',
+            'startup_contact': 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z',
+            'export_generated': 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6',
+            'search_performed': 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z',
+            'view': 'M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z',
+            'investor': 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z',
+            'funding': 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6'
+        };
+        return icons[type] || icons['startup_created'];
+    }
+
     onMount(async () => {
         await userStore.init();
 
-        // Vérifier si l'utilisateur est admin
         if (!user || !isAdmin(user)) {
             goto('/');
             return;
@@ -189,7 +207,6 @@
 <div class="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-purple-100">
     <Header />
 
-    <!-- Vérification des permissions -->
     {#if !user || !isAdmin(user)}
         <div class="pt-24 px-6 sm:px-8 lg:px-12">
             <div class="max-w-4xl mx-auto text-center py-16">
@@ -203,12 +220,10 @@
             </div>
         </div>
     {:else}
-        <!-- Affichage des erreurs -->
         {#if error}
             <ErrorMessage message={error} onRetry={retryLoad} />
         {/if}
 
-        <!-- En-tête Admin -->
         <section class="pt-24 pb-8 px-6 sm:px-8 lg:px-12">
             <div class="max-w-7xl mx-auto">
                 <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-8">
@@ -230,7 +245,6 @@
                     </div>
                 </div>
 
-                <!-- Navigation par onglets -->
                 <div class="border-b border-gray-200 mb-8">
                     <nav class="-mb-px flex space-x-8">
                         <button
@@ -265,7 +279,6 @@
             </div>
         </section>
 
-        <!-- Contenu principal -->
         <section class="pb-20 px-6 sm:px-8 lg:px-12">
             <div class="max-w-7xl mx-auto">
                 {#if loading}
@@ -273,16 +286,13 @@
                         <LoadingSpinner size="lg" />
                     </div>
                 {:else}
-                    <!-- Onglet Vue d'ensemble -->
                     {#if activeTab === 'overview'}
-                        <!-- Statistiques principales -->
                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                             <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-shadow duration-300">
                                 <div class="flex items-center justify-between">
                                     <div>
                                         <p class="text-sm font-medium text-gray-500 mb-1">Startups Totales</p>
-                                        <p class="text-3xl font-bold text-gray-900">{stats.totalStartups}</p>
-                                        <p class="text-sm text-green-600 font-medium">+12% ce mois</p>
+                                        <p class="text-3xl font-bold text-gray-900">{stats.totalStartups || 0}</p>
                                     </div>
                                     <div class="w-12 h-12 bg-gradient-to-r from-[#c174f2] to-[#cb90f1] rounded-full flex items-center justify-center">
                                         <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -296,8 +306,7 @@
                                 <div class="flex items-center justify-between">
                                     <div>
                                         <p class="text-sm font-medium text-gray-500 mb-1">Vues Totales</p>
-                                        <p class="text-3xl font-bold text-gray-900">{formatNumber(stats.totalViews)}</p>
-                                        <p class="text-sm text-green-600 font-medium">+24% ce mois</p>
+                                        <p class="text-3xl font-bold text-gray-900">{formatNumber(stats.totalViews || 0)}</p>
                                     </div>
                                     <div class="w-12 h-12 bg-gradient-to-r from-[#f18585] to-[#f49c9c] rounded-full flex items-center justify-center">
                                         <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -312,8 +321,7 @@
                                 <div class="flex items-center justify-between">
                                     <div>
                                         <p class="text-sm font-medium text-gray-500 mb-1">Taux d'Engagement</p>
-                                        <p class="text-3xl font-bold text-gray-900">{stats.engagementRate}%</p>
-                                        <p class="text-sm text-blue-600 font-medium">Excellent</p>
+                                        <p class="text-3xl font-bold text-gray-900">{stats.engagementRate || 0}%</p>
                                     </div>
                                     <div class="w-12 h-12 bg-gradient-to-r from-[#d5a8f2] to-[#e4bef8] rounded-full flex items-center justify-center">
                                         <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -327,8 +335,7 @@
                                 <div class="flex items-center justify-between">
                                     <div>
                                         <p class="text-sm font-medium text-gray-500 mb-1">Interactions Investisseurs</p>
-                                        <p class="text-3xl font-bold text-gray-900">{stats.investorInteractions}</p>
-                                        <p class="text-sm text-purple-600 font-medium">+8% ce mois</p>
+                                        <p class="text-3xl font-bold text-gray-900">{stats.investorInteractions || 0}</p>
                                     </div>
                                     <div class="w-12 h-12 bg-gradient-to-r from-[#f6aeae] to-[#f8cacf] rounded-full flex items-center justify-center">
                                         <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -339,73 +346,103 @@
                             </div>
                         </div>
 
-                        <!-- Grille de contenu -->
                         <div class="grid lg:grid-cols-3 gap-8">
-                            <!-- Startups récentes -->
                             <div class="lg:col-span-2">
                                 <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
                                     <h3 class="text-lg font-bold text-gray-900 mb-4 font-['Montserrat']">Startups Récentes</h3>
                                     <div class="space-y-4">
-                                        {#each recentStartups as startup}
-                                            <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-300">
-                                                <div class="flex items-center space-x-4">
-                                                    <div class="w-10 h-10 bg-gradient-to-r from-[#c174f2] to-[#f18585] rounded-full flex items-center justify-center">
-                                                        <span class="text-white font-bold text-sm">{startup.name.charAt(0)}</span>
-                                                    </div>
-                                                    <div>
-                                                        <h4 class="font-semibold text-gray-900">{startup.name}</h4>
-                                                        <p class="text-sm text-gray-600">{startup.sector}</p>
-                                                    </div>
-                                                </div>
-                                                <div class="text-right">
-                                                    <span class="text-sm font-medium text-[#c174f2]">{startup.maturity}</span>
-                                                    <p class="text-xs text-gray-500">{new Date(startup.created_at).toLocaleDateString('fr-FR')}</p>
-                                                </div>
+                                        {#if recentStartups.length === 0}
+                                            <div class="text-center py-8 text-gray-500">
+                                                <svg class="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                                                </svg>
+                                                Aucune startup récente
                                             </div>
-                                        {/each}
+                                        {:else}
+                                            {#each recentStartups as startup}
+                                                <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-300 cursor-pointer"
+                                                     on:click={() => goto(`/startup/${startup.id}`)}>
+                                                    <div class="flex items-center space-x-4">
+                                                        <div class="w-10 h-10 bg-gradient-to-r from-[#c174f2] to-[#f18585] rounded-full flex items-center justify-center">
+                                                            <span class="text-white font-bold text-sm">{startup.name?.charAt(0) || '?'}</span>
+                                                        </div>
+                                                        <div>
+                                                            <h4 class="font-semibold text-gray-900">{startup.name || 'Nom non disponible'}</h4>
+                                                            <p class="text-sm text-gray-600">{startup.sector || 'Secteur non spécifié'}</p>
+                                                        </div>
+                                                    </div>
+                                                    <div class="text-right">
+                                                        <span class="text-sm font-medium text-[#c174f2]">{startup.maturity || 'N/A'}</span>
+                                                        <p class="text-xs text-gray-500">
+                                                            {startup.created_at ? new Date(startup.created_at).toLocaleDateString('fr-FR') : 'Date inconnue'}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            {/each}
+                                        {/if}
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- Activité récente et secteurs -->
                             <div class="space-y-8">
-                                <!-- Activité récente -->
                                 <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
                                     <h3 class="text-lg font-bold text-gray-900 mb-4 font-['Montserrat']">Activité Récente</h3>
                                     <div class="space-y-3">
-                                        {#each recentActivity as activity}
-                                            <div class="flex items-center space-x-3">
-                                                <div class="w-2 h-2 bg-[#c174f2] rounded-full"></div>
-                                                <div class="flex-1">
-                                                    <p class="text-sm text-gray-900">{activity.message}</p>
-                                                    <p class="text-xs text-gray-500">Il y a {activity.time}</p>
-                                                </div>
+                                        {#if recentActivity.length === 0}
+                                            <div class="text-center py-4 text-gray-500">
+                                                <svg class="w-8 h-8 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                                </svg>
+                                                Aucune activité récente
                                             </div>
-                                        {/each}
+                                        {:else}
+                                            {#each recentActivity as activity}
+                                                <div class="flex items-center space-x-3">
+                                                    <div class="w-8 h-8 bg-[#c174f2] bg-opacity-10 rounded-full flex items-center justify-center">
+                                                        <svg class="w-4 h-4 text-[#c174f2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{getActivityIcon(activity.type || activity.icon)}"></path>
+                                                        </svg>
+                                                    </div>
+                                                    <div class="flex-1">
+                                                        <p class="text-sm text-gray-900">{activity.message}</p>
+                                                        <p class="text-xs text-gray-500">
+                                                            {activity.time || (activity.timestamp ? new Date(activity.timestamp).toLocaleString('fr-FR') : 'Récemment')}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            {/each}
+                                        {/if}
                                     </div>
                                 </div>
 
-                                <!-- Top secteurs -->
                                 <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
                                     <h3 class="text-lg font-bold text-gray-900 mb-4 font-['Montserrat']">Secteurs Populaires</h3>
                                     <div class="space-y-3">
-                                        {#each topSectors as sector}
-                                            <div class="flex items-center justify-between">
-                                                <span class="text-sm font-medium text-gray-900">{sector.name}</span>
-                                                <span class="text-sm text-[#c174f2] font-semibold">{sector.count}</span>
+                                        {#if topSectors.length === 0}
+                                            <div class="text-center py-4 text-gray-500">
+                                                <svg class="w-8 h-8 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                                </svg>
+                                                Aucune donnée secteur
                                             </div>
-                                            <div class="w-full bg-gray-200 rounded-full h-2">
-                                                <div class="bg-gradient-to-r from-[#c174f2] to-[#f18585] h-2 rounded-full"
-                                                     style="width: {(sector.count / Math.max(...topSectors.map(s => s.count))) * 100}%"></div>
-                                            </div>
-                                        {/each}
+                                        {:else}
+                                            {#each topSectors as sector}
+                                                <div class="flex items-center justify-between">
+                                                    <span class="text-sm font-medium text-gray-900">{sector.name || sector.sector}</span>
+                                                    <span class="text-sm text-[#c174f2] font-semibold">{sector.count || 0}</span>
+                                                </div>
+                                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                                    <div class="bg-gradient-to-r from-[#c174f2] to-[#f18585] h-2 rounded-full"
+                                                         style="width: {Math.max(...topSectors.map(s => s.count || 0)) > 0 ? ((sector.count || 0) / Math.max(...topSectors.map(s => s.count || 0))) * 100 : 0}%"></div>
+                                                </div>
+                                            {/each}
+                                        {/if}
                                     </div>
                                 </div>
                             </div>
                         </div>
                     {/if}
 
-                    <!-- Onglet Exports -->
                     {#if activeTab === 'exports'}
                         <div class="bg-white rounded-2xl shadow-lg p-8 border border-gray-100">
                             <h3 class="text-2xl font-bold text-gray-900 mb-6 font-['Montserrat']">Rapports et Exports</h3>
@@ -472,80 +509,103 @@
                         </div>
                     {/if}
 
-                    <!-- Onglet Analytics -->
                     {#if activeTab === 'analytics'}
                         <div class="space-y-8">
-                            <!-- Métriques avancées -->
                             <div class="bg-white rounded-2xl shadow-lg p-8 border border-gray-100">
                                 <h3 class="text-2xl font-bold text-gray-900 mb-6 font-['Montserrat']">Analytics Avancées</h3>
 
                                 <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                                     <div class="text-center p-6 bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl">
-                                        <div class="text-3xl font-bold text-[#c174f2] mb-2">{formatCurrency(stats.totalFunding)}</div>
+                                        <div class="text-3xl font-bold text-[#c174f2] mb-2">{formatCurrency(stats.totalFunding || 0)}</div>
                                         <div class="text-gray-600 font-medium">Financement Total</div>
                                     </div>
 
                                     <div class="text-center p-6 bg-gradient-to-br from-pink-50 to-orange-50 rounded-xl">
-                                        <div class="text-3xl font-bold text-[#f18585] mb-2">{stats.successRate}%</div>
+                                        <div class="text-3xl font-bold text-[#f18585] mb-2">{stats.successRate || 0}%</div>
                                         <div class="text-gray-600 font-medium">Taux de Réussite</div>
                                     </div>
 
                                     <div class="text-center p-6 bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl">
-                                        <div class="text-3xl font-bold text-[#d5a8f2] mb-2">{stats.jobsCreated}+</div>
+                                        <div class="text-3xl font-bold text-[#d5a8f2] mb-2">{stats.jobsCreated || 0}</div>
                                         <div class="text-gray-600 font-medium">Emplois Créés</div>
-                                    </div>
-                                </div>
-
-                                <!-- Graphique simulé -->
-                                <div class="h-64 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl flex items-center justify-center">
-                                    <div class="text-center">
-                                        <svg class="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                                        </svg>
-                                        <p class="text-gray-500 font-medium">Graphiques Analytics</p>
-                                        <p class="text-sm text-gray-400">À intégrer avec Chart.js ou D3.js</p>
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- Métriques de performance -->
                             <div class="grid md:grid-cols-2 gap-8">
                                 <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
                                     <h4 class="text-lg font-bold text-gray-900 mb-4 font-['Montserrat']">Performance des Vues</h4>
                                     <div class="space-y-4">
                                         <div class="flex justify-between items-center">
                                             <span class="text-gray-600">Vues aujourd'hui</span>
-                                            <span class="font-semibold text-[#c174f2]">{formatNumber(Math.floor(stats.monthlyViews / 30))}</span>
+                                            <span class="font-semibold text-[#c174f2]">{formatNumber(Math.floor((stats.monthlyViews || 0) / 30))}</span>
                                         </div>
                                         <div class="flex justify-between items-center">
                                             <span class="text-gray-600">Vues ce mois</span>
-                                            <span class="font-semibold text-[#f18585]">{formatNumber(stats.monthlyViews)}</span>
+                                            <span class="font-semibold text-[#f18585]">{formatNumber(stats.monthlyViews || 0)}</span>
                                         </div>
                                         <div class="flex justify-between items-center">
                                             <span class="text-gray-600">Vues totales</span>
-                                            <span class="font-semibold text-[#d5a8f2]">{formatNumber(stats.totalViews)}</span>
+                                            <span class="font-semibold text-[#d5a8f2]">{formatNumber(stats.totalViews || 0)}</span>
                                         </div>
                                     </div>
                                 </div>
 
                                 <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
-                                    <h4 class="text-lg font-bold text-gray-900 mb-4 font-['Montserrat']">Engagement Utilisateurs</h4>
+                                    <h4 class="text-lg font-bold text-gray-900 mb-4 font-['Montserrat']">Métriques Clés</h4>
                                     <div class="space-y-4">
                                         <div class="flex justify-between items-center">
-                                            <span class="text-gray-600">Taux de rebond</span>
-                                            <span class="font-semibold text-green-600">23%</span>
+                                            <span class="text-gray-600">Startups actives</span>
+                                            <span class="font-semibold text-green-600">{stats.totalStartups || 0}</span>
                                         </div>
                                         <div class="flex justify-between items-center">
-                                            <span class="text-gray-600">Temps moyen sur site</span>
-                                            <span class="font-semibold text-blue-600">4m 32s</span>
+                                            <span class="text-gray-600">Interactions investisseurs</span>
+                                            <span class="font-semibold text-blue-600">{stats.investorInteractions || 0}</span>
                                         </div>
                                         <div class="flex justify-between items-center">
-                                            <span class="text-gray-600">Pages par session</span>
-                                            <span class="font-semibold text-purple-600">3.2</span>
+                                            <span class="text-gray-600">Taux d'engagement</span>
+                                            <span class="font-semibold text-purple-600">{stats.engagementRate || 0}%</span>
                                         </div>
+                                        {#if analyticsData}
+                                            <div class="flex justify-between items-center">
+                                                <span class="text-gray-600">Top secteur</span>
+                                                <span class="font-semibold text-indigo-600">{analyticsData.summary?.topPerformingSector || 'N/A'}</span>
+                                            </div>
+                                        {/if}
                                     </div>
                                 </div>
                             </div>
+
+                            {#if analyticsData}
+                                <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+                                    <h4 class="text-lg font-bold text-gray-900 mb-4 font-['Montserrat']">Top Startups par Performance</h4>
+                                    <div class="space-y-3">
+                                        {#if analyticsData.topStartups && analyticsData.topStartups.length > 0}
+                                            {#each analyticsData.topStartups.slice(0, 5) as startup}
+                                                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                                    <div class="flex items-center space-x-3">
+                                                        <div class="w-8 h-8 bg-gradient-to-r from-[#c174f2] to-[#f18585] rounded-full flex items-center justify-center">
+                                                            <span class="text-white font-bold text-xs">{startup.name?.charAt(0) || '?'}</span>
+                                                        </div>
+                                                        <div>
+                                                            <p class="text-sm font-medium text-gray-900">{startup.name}</p>
+                                                            <p class="text-xs text-gray-500">{startup.sector}</p>
+                                                        </div>
+                                                    </div>
+                                                    <div class="text-right">
+                                                        <p class="text-sm font-semibold text-[#c174f2]">{startup.views} vues</p>
+                                                        <p class="text-xs text-gray-500">{startup.contactRate}% contact</p>
+                                                    </div>
+                                                </div>
+                                            {/each}
+                                        {:else}
+                                            <div class="text-center py-4 text-gray-500">
+                                                Aucune donnée de performance disponible
+                                            </div>
+                                        {/if}
+                                    </div>
+                                </div>
+                            {/if}
                         </div>
                     {/if}
                 {/if}

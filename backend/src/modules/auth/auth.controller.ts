@@ -1,4 +1,3 @@
-// backend/src/modules/auth/auth.controller.ts - Version avec debug
 import { 
   Body, 
   Controller, 
@@ -36,14 +35,13 @@ export class AuthController {
 
   constructor(private readonly authService: AuthService) {}
 
-  // Inscription startup avec debug
   @Post('register/startup')
   @ApiOperation({ summary: 'Register a new startup' })
   @ApiResponse({ status: 201, description: 'Startup registered successfully' })
   @ApiResponse({ status: 409, description: 'Startup already exists' })
   async registerStartup(@Body() registerDto: RegisterStartupDto) {
     try {
-      this.logger.log(`📝 Startup registration attempt: ${registerDto.email}`);
+      this.logger.log(`Startup registration attempt: ${registerDto.email}`);
       this.logger.debug(`Registration data: ${JSON.stringify({
         email: registerDto.email,
         companyName: registerDto.companyName,
@@ -53,12 +51,12 @@ export class AuthController {
       
       const result = await this.authService.registerStartup(registerDto);
       
-      this.logger.log(`✅ Startup registration successful: ${registerDto.email}`);
+      this.logger.log(`Startup registration successful: ${registerDto.email}`);
       this.logger.debug(`User created with ID: ${result.user.id}`);
       
       return ApiResponseDto.success('Startup registered successfully', result);
     } catch (error) {
-      this.logger.error(`❌ Startup registration failed for ${registerDto.email}:`, error.message);
+      this.logger.error(`Startup registration failed for ${registerDto.email}:`, error.message);
       this.logger.error('Full error:', error);
       
       throw new HttpException(
@@ -74,16 +72,16 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
   async login(@Body() loginDto: LoginDto) {
     try {
-      this.logger.log(`🔐 Login attempt for: ${loginDto.email}`);
+      this.logger.log(`Login attempt for: ${loginDto.email}`);
       
       const result = await this.authService.login(loginDto);
       
-      this.logger.log(`✅ Login successful for: ${loginDto.email}`);
+      this.logger.log(`Login successful for: ${loginDto.email}`);
       this.logger.debug(`User role: ${result.user.role}, ID: ${result.user.id}`);
       
       return ApiResponseDto.success('Login successful', result);
     } catch (error) {
-      this.logger.error(`❌ Login failed for ${loginDto.email}:`, error.message);
+      this.logger.error(`Login failed for ${loginDto.email}:`, error.message);
       
       throw new HttpException(
         error.message || 'Login failed',
@@ -92,13 +90,12 @@ export class AuthController {
     }
   }
 
-  // Endpoint de debug pour lister les utilisateurs
   @Get('debug/users')
   @ApiOperation({ summary: 'Debug: List all users' })
   async debugUsers() {
     try {
       const users = await this.authService.getAllUsers(50);
-      this.logger.log(`📋 Debug: Found ${users.users.length} users in database`);
+      this.logger.log(`Debug: Found ${users.users.length} users in database`);
       
       const userSummary = users.users.map(user => ({
         id: user.id,
@@ -113,7 +110,7 @@ export class AuthController {
         users: userSummary
       });
     } catch (error) {
-      this.logger.error('❌ Debug users failed:', error);
+      this.logger.error('Debug users failed:', error);
       throw new HttpException(
         'Failed to retrieve users for debug',
         HttpStatus.INTERNAL_SERVER_ERROR
@@ -121,19 +118,17 @@ export class AuthController {
     }
   }
 
-  // Endpoint de debug pour chercher un utilisateur spécifique
   @Get('debug/user/:email')
   @ApiOperation({ summary: 'Debug: Find user by email' })
   async debugFindUser(@Param('email') email: string) {
     try {
-      this.logger.log(`🔍 Debug: Looking for user: ${email}`);
+      this.logger.log(`Debug: Looking for user: ${email}`);
       
-      // Utiliser directement le repository pour le debug
       const userRepository = this.authService['userRepository'];
       const user = await userRepository.findByEmail(email);
       
       if (user) {
-        this.logger.log(`✅ Debug: User found: ${email}`);
+        this.logger.log(`Debug: User found: ${email}`);
         return ApiResponseDto.success('User found', {
           id: user.id,
           email: user.email,
@@ -143,11 +138,11 @@ export class AuthController {
           updatedAt: user.updatedAt
         });
       } else {
-        this.logger.log(`❌ Debug: User not found: ${email}`);
+        this.logger.log(`Debug: User not found: ${email}`);
         return ApiResponseDto.error('User not found');
       }
     } catch (error) {
-      this.logger.error(`💥 Debug find user failed for ${email}:`, error);
+      this.logger.error(`Debug find user failed for ${email}:`, error);
       throw new HttpException(
         'Failed to find user for debug',
         HttpStatus.INTERNAL_SERVER_ERROR
@@ -155,7 +150,6 @@ export class AuthController {
     }
   }
 
-  // Les autres méthodes restent identiques...
   @Post('register/user')
   @ApiOperation({ summary: 'Register a new user' })
   @ApiResponse({ status: 201, description: 'User registered successfully' })

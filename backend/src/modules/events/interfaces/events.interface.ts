@@ -1,5 +1,3 @@
-// backend/src/modules/events/interfaces/events.interface.ts
-
 // Interface générique pour les events
 export interface IEvent {
   id: string;
@@ -25,35 +23,31 @@ export interface IFirebaseEvent {
   target_audience?: string;
   featured?: boolean;
   imageUrl?: string;
-  // Nouveaux champs pour la synchronisation
-  jebId?: number; // ID de référence vers l'API JEB (pour éviter doublons)
-  syncedAt?: string; // Timestamp de synchronisation
-  source: 'local' | 'jeb-synced'; // Source de l'event
+  jebId?: number;
+  syncedAt?: string; 
+  source: 'local' | 'jeb-synced'; 
   created_at?: string;
   updated_at?: string;
 }
 
 // Format JEB API (interface principale utilisée dans l'application)
 export interface IJebEvent {
-  id?: number; // JEB API ID
+  id?: number;
   name: string;
-  description?: string; // Rendu optionnel pour plus de flexibilité
-  dates: string; // Date au format ISO 8601
-  event_type?: string; // Rendu optionnel pour éviter les erreurs
-  location?: string; // Rendu optionnel pour éviter les erreurs
+  description?: string;
+  dates: string;
+  event_type?: string;
+  location?: string;
   target_audience?: string;
-  firebaseId?: string; // Firestore doc ID
+  firebaseId?: string;
   
-  // Champs pour la synchronisation Firebase
   jebId?: number;
   syncedAt?: string;
   source?: 'local' | 'jeb-synced';
   
-  // Champs supplémentaires
   featured?: boolean;
   imageUrl?: string;
   
-  // Timestamps
   created_at?: string;
   updated_at?: string;
 }
@@ -69,8 +63,8 @@ export interface IEventStats {
   targetAudiences: Array<{ name: string; count: number }>;
   sources: Array<{ name: string; count: number }>;
   featured: number;
-  upcoming: number; // Events in the future
-  past: number; // Events in the past
+  upcoming: number;
+  past: number;
   oldestDate?: string;
   newestDate?: string;
 }
@@ -84,7 +78,7 @@ export interface IEventFilters {
   location?: string;
   skip?: number;
   limit?: number;
-  upcoming?: boolean; // Filter for upcoming events
+  upcoming?: boolean;
 }
 
 // Interface pour la création d'events (données minimales requises)

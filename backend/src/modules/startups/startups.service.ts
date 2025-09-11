@@ -53,7 +53,7 @@ export class StartupsService {
       
       const stats: IStats = {
         totalProjects,
-        totalFunding: 50000000, // Simulé
+        totalFunding: 50000000,
         successRate: 85,
         jobsCreated: 500,
       };
