@@ -1,3 +1,5 @@
+// backend/src/modules/auth/interfaces/user.interface.ts - Ajout du champ avatar
+
 export interface IUser {
   id?: string;
   uid?: string;
@@ -10,6 +12,9 @@ export interface IUser {
   lastLoginAt?: Date;
   createdAt: Date;
   updatedAt: Date;
+
+  // Nouveau champ pour l'avatar
+  avatar?: string;
 
   // Champs spécifiques aux utilisateurs normaux
   age?: number;

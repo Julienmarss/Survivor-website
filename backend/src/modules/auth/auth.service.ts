@@ -380,16 +380,6 @@ export class AuthService {
     }
   }
 
-  async updateUserProfile(userId: string, updateData: Partial<IUser>): Promise<IUser> {
-    try {
-      const { id, uid, password, role, createdAt, updatedAt, ...allowedData } = updateData;
-      return await this.userRepository.updateUser(userId, this.cleanObjectDeep(allowedData));
-    } catch (error) {
-      this.logger.error(`Error updating user profile ${userId}:`, error);
-      throw error;
-    }
-  }
-
   /**
    * @brief Generate JWT access token
    */
@@ -435,4 +425,202 @@ export class AuthService {
     
     return obj;
   }
+
+  /**
+ * @brief Update user profile with enhanced validation and data cleaning
+ */
+async updateUserProfile(userId: string, updateData: Partial<IUser>): Promise<IUser> {
+  try {
+    this.logger.log(`Updating profile for user: ${userId}`);
+    this.logger.debug(`Update data received: ${JSON.stringify(updateData, null, 2)}`);
+    
+    // Validation des données selon le rôle de l'utilisateur
+    const existingUser = await this.userRepository.findById(userId);
+    if (!existingUser) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    // Nettoyer et valider les données selon le rôle
+    const cleanedData = this.validateAndCleanProfileData(updateData, existingUser.role);
+    
+    this.logger.debug(`Cleaned data for update: ${JSON.stringify(cleanedData, null, 2)}`);
+    
+    // Mise à jour dans la base de données
+    const updatedUser = await this.userRepository.updateUser(userId, cleanedData);
+    
+    this.logger.log(`Profile updated successfully for user: ${userId}`);
+    
+    // Retourner l'utilisateur sans le mot de passe
+    return { ...updatedUser, password: undefined };
+  } catch (error) {
+    this.logger.error(`Error updating user profile ${userId}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * @brief Change user password with validation
+ */
+async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<void> {
+  try {
+    this.logger.log(`Password change attempt for user: ${userId}`);
+    
+    // Récupérer l'utilisateur avec son mot de passe
+    const user = await this.userRepository.findById(userId);
+    if (!user || !user.password) {
+      throw new UnauthorizedException('User not found or invalid');
+    }
+
+    // Vérifier le mot de passe actuel
+    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    if (!isCurrentPasswordValid) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+
+    // Valider le nouveau mot de passe
+    if (newPassword.length < 6) {
+      throw new Error('New password must be at least 6 characters long');
+    }
+
+    // Hasher le nouveau mot de passe
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+
+    // Mettre à jour le mot de passe
+    await this.userRepository.updateUser(userId, { 
+      password: hashedNewPassword 
+    });
+
+    this.logger.log(`Password changed successfully for user: ${userId}`);
+  } catch (error) {
+    this.logger.error(`Error changing password for user ${userId}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * @brief Validate and clean profile data based on user role
+ */
+private validateAndCleanProfileData(data: any, userRole: UserRole): Partial<IUser> {
+  const cleanedData: any = {};
+
+  // Champs communs autorisés
+  const commonFields = [
+    'firstName', 'lastName', 'phone', 'bio', 'motivation', 'location', 'address',
+    'linkedin', 'linkedinUrl', 'website', 'websiteUrl', 'website_url', 'avatar'
+  ];
+
+  // Champs spécifiques aux startups
+  const startupFields = [
+    'companyName', 'company_name', 'sector', 'description', 'companyDescription',
+    'foundingYear', 'founding_year', 'teamSize', 'team_size', 'fundingStage', 
+    'funding_stage', 'businessModel', 'business_model', 'currentFunding', 
+    'current_funding', 'fundingNeeds', 'funding_needs', 'maturity', 
+    'projectStatus', 'project_status', 'needs', 'socialMediaUrl', 'social_media_url'
+  ];
+
+  // Champs spécifiques aux investisseurs
+  const investorFields = [
+    'company', 'position', 'investorType', 'investor_type', 'experience',
+    'investmentRange', 'investment_range', 'preferredSectors', 'preferred_sectors',
+    'preferredStages', 'preferred_stages', 'geography', 'investmentCriteria',
+    'investment_criteria', 'portfolio', 'expertise', 'portfolioSize',
+    'investmentExperience', 'companyWebsite', 'geographicalPreferences'
+  ];
+
+  // Champs spécifiques aux étudiants
+  const studentFields = [
+    'school', 'schoolName', 'studyLevel', 'study_level', 'level', 'studyField',
+    'study_field', 'field', 'interests', 'graduationYear', 'graduation_year'
+  ];
+
+  // Nettoyer les champs communs
+  commonFields.forEach(field => {
+    if (data[field] !== undefined) {
+      cleanedData[field] = data[field];
+    }
+  });
+
+  // Nettoyer les champs spécifiques selon le rôle
+  switch (userRole) {
+    case UserRole.STARTUP:
+      startupFields.forEach(field => {
+        if (data[field] !== undefined) {
+          cleanedData[field] = data[field];
+        }
+      });
+      break;
+
+    case UserRole.INVESTOR:
+      investorFields.forEach(field => {
+        if (data[field] !== undefined) {
+          cleanedData[field] = data[field];
+        }
+      });
+      break;
+
+    case UserRole.USER:
+      studentFields.forEach(field => {
+        if (data[field] !== undefined) {
+          cleanedData[field] = data[field];
+        }
+      });
+      break;
+  }
+
+  // Validation spéciale pour certains champs
+  if (cleanedData.email) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(cleanedData.email)) {
+      throw new Error('Invalid email format');
+    }
+  }
+
+  if (cleanedData.phone) {
+    // Nettoyer le numéro de téléphone (enlever les espaces, tirets, etc.)
+    cleanedData.phone = cleanedData.phone.replace(/[\s-()]/g, '');
+  }
+
+  if (cleanedData.linkedin || cleanedData.linkedinUrl) {
+    const linkedinUrl = cleanedData.linkedin || cleanedData.linkedinUrl;
+    if (linkedinUrl && !linkedinUrl.includes('linkedin.com')) {
+      throw new Error('Invalid LinkedIn URL');
+    }
+  }
+
+  if (cleanedData.website || cleanedData.websiteUrl || cleanedData.website_url) {
+    const websiteUrl = cleanedData.website || cleanedData.websiteUrl || cleanedData.website_url;
+    if (websiteUrl && !websiteUrl.startsWith('http')) {
+      cleanedData.website = `https://${websiteUrl}`;
+      cleanedData.websiteUrl = cleanedData.website;
+      cleanedData.website_url = cleanedData.website;
+    }
+  }
+
+  // Nettoyer les arrays
+  if (cleanedData.preferredSectors && Array.isArray(cleanedData.preferredSectors)) {
+    cleanedData.preferredSectors = cleanedData.preferredSectors.filter(s => s && s.trim());
+  }
+
+  if (cleanedData.interests && Array.isArray(cleanedData.interests)) {
+    cleanedData.interests = cleanedData.interests.filter(i => i && i.trim());
+  }
+
+  return this.cleanObjectDeep(cleanedData);
+}
+
+/**
+ * @brief Get user profile with role-specific data
+ */
+async getUserProfile(userId: string): Promise<IUser | null> {
+  try {
+    const user = await this.userRepository.findById(userId);
+    if (user) {
+      return { ...user, password: undefined };
+    }
+    return null;
+  } catch (error) {
+    this.logger.error(`Error getting user profile ${userId}:`, error);
+    throw error;
+  }
+}
 }

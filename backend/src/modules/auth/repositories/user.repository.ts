@@ -137,28 +137,6 @@ export class UserRepository {
     }
   }
 
-  async updateUser(userId: string, updateData: Partial<IUser>): Promise<IUser> {
-    try {
-      const data = this.filterUndefined({
-        ...updateData,
-        updatedAt: new Date()
-      });
-
-      await this.db.collection(this.usersCollection).doc(userId).update(data);
-      
-      const updated = await this.findById(userId);
-      if (!updated) {
-        throw new Error(`User ${userId} not found after update`);
-      }
-      
-      this.logger.log(`Updated user: ${updated.email}`);
-      return updated;
-    } catch (error) {
-      this.logger.error(`Error updating user ${userId}:`, error);
-      throw error;
-    }
-  }
-
   async verifyToken(token: string): Promise<admin.auth.DecodedIdToken> {
     try {
       const decodedToken = await this.auth.verifyIdToken(token);
@@ -337,4 +315,164 @@ export class UserRepository {
 
     return user;
   }
+
+  async updateUser(userId: string, updateData: Partial<IUser>): Promise<IUser> {
+  try {
+    this.logger.log(`Updating user: ${userId}`);
+    this.logger.debug(`Update data: ${JSON.stringify(updateData, null, 2)}`);
+    
+    // Nettoyer les données avant la mise à jour
+    const cleanData = this.filterUndefined({
+      ...updateData,
+      updatedAt: new Date()
+    });
+
+    // Supprimer les champs sensibles qui ne doivent pas être mis à jour ici
+    const { id, uid, createdAt, ...safeUpdateData } = cleanData;
+
+    this.logger.debug(`Safe update data: ${JSON.stringify(safeUpdateData, null, 2)}`);
+
+    // Effectuer la mise à jour
+    await this.db.collection(this.usersCollection).doc(userId).update(safeUpdateData);
+    
+    // Récupérer l'utilisateur mis à jour
+    const updated = await this.findById(userId);
+    if (!updated) {
+      throw new Error(`User ${userId} not found after update`);
+    }
+    
+    this.logger.log(`Successfully updated user: ${updated.email}`);
+    return updated;
+  } catch (error) {
+    this.logger.error(`Error updating user ${userId}:`, error);
+    
+    // Gérer les erreurs spécifiques de Firestore
+    if (error.code === 'not-found') {
+      throw new Error(`User ${userId} not found`);
+    }
+    
+    if (error.code === 'permission-denied') {
+      throw new Error(`Permission denied to update user ${userId}`);
+    }
+    
+    throw error;
+  }
+}
+
+// Ajouter une méthode pour valider les données avant mise à jour
+private validateUpdateData(data: Partial<IUser>): void {
+  // Validation de l'email si présent
+  if (data.email) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(data.email)) {
+      throw new Error('Invalid email format');
+    }
+  }
+
+  // Validation du rôle si présent
+  if (data.role) {
+    const validRoles = Object.values(UserRole);
+    if (!validRoles.includes(data.role)) {
+      throw new Error('Invalid user role');
+    }
+  }
+
+  // Validation des URLs si présentes
+  const urlFields = ['websiteUrl', 'website', 'website_url', 'linkedinUrl', 'linkedin', 'socialMediaUrl', 'social_media_url'];
+  urlFields.forEach(field => {
+    if (data[field] && typeof data[field] === 'string') {
+      try {
+        new URL(data[field]);
+      } catch {
+        // Si ce n'est pas une URL valide, essayer d'ajouter https://
+        if (!data[field].startsWith('http')) {
+          data[field] = `https://${data[field]}`;
+          try {
+            new URL(data[field]);
+          } catch {
+            throw new Error(`Invalid URL format for ${field}`);
+          }
+        } else {
+          throw new Error(`Invalid URL format for ${field}`);
+        }
+      }
+    }
+  });
+}
+
+// Méthode pour fusionner les données existantes avec les nouvelles
+async updateUserSafely(userId: string, updateData: Partial<IUser>): Promise<IUser> {
+  try {
+    // Récupérer l'utilisateur existant
+    const existingUser = await this.findById(userId);
+    if (!existingUser) {
+      throw new Error(`User ${userId} not found`);
+    }
+
+    // Valider les nouvelles données
+    this.validateUpdateData(updateData);
+
+    // Fusionner avec les données existantes de manière intelligente
+    const mergedData = this.mergeUserData(existingUser, updateData);
+
+    // Effectuer la mise à jour
+    return await this.updateUser(userId, mergedData);
+  } catch (error) {
+    this.logger.error(`Error in safe user update for ${userId}:`, error);
+    throw error;
+  }
+}
+
+// Méthode pour fusionner intelligemment les données
+private mergeUserData(existingUser: IUser, updateData: Partial<IUser>): Partial<IUser> {
+  const merged = { ...updateData };
+
+  // Gérer les arrays de manière spéciale
+  if (updateData.preferredSectors && Array.isArray(updateData.preferredSectors)) {
+    merged.preferredSectors = updateData.preferredSectors.filter(s => s && s.trim());
+  }
+
+  if (updateData.interests && Array.isArray(updateData.interests)) {
+    merged.interests = updateData.interests.filter(i => i && i.trim());
+  }
+
+  if (updateData.preferredStages && Array.isArray(updateData.preferredStages)) {
+    merged.preferredStages = updateData.preferredStages.filter(s => s && s.trim());
+  }
+
+  if (updateData.geographicalPreferences && Array.isArray(updateData.geographicalPreferences)) {
+    merged.geographicalPreferences = updateData.geographicalPreferences.filter(g => g && g.trim());
+  }
+
+  // Nettoyer les chaînes vides
+  Object.keys(merged).forEach(key => {
+    if (typeof merged[key] === 'string' && merged[key].trim() === '') {
+      merged[key] = null;
+    }
+  });
+
+  return merged;
+}
+
+// Méthode pour mettre à jour uniquement certains champs
+async updateUserFields(userId: string, fields: string[], data: any): Promise<IUser> {
+  try {
+    const filteredData: any = {};
+    
+    fields.forEach(field => {
+      if (data[field] !== undefined) {
+        filteredData[field] = data[field];
+      }
+    });
+
+    if (Object.keys(filteredData).length === 0) {
+      throw new Error('No valid fields to update');
+    }
+
+    return await this.updateUser(userId, filteredData);
+  } catch (error) {
+    this.logger.error(`Error updating specific fields for user ${userId}:`, error);
+    throw error;
+  }
+}
 }

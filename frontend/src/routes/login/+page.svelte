@@ -65,46 +65,51 @@
     return Object.keys(formErrors).length === 0;
   }
 
-  async function handleSubmit() {
-    if (!validateForm()) return;
+async function handleSubmit() {
+  if (!validateForm()) return;
 
-    isSubmitting = true;
-    errors = {};
+  isSubmitting = true;
+  errors = {};
 
-    try {
-      console.log('Attempting login for:', formData.email);
+  try {
+    console.log('Attempting login for:', formData.email);
+    
+    // Votre userStore.login() attend un objet { email, password }
+    // PAS deux paramètres séparés !
+    const result = await userStore.login({
+      email: formData.email,
+      password: formData.password
+    });
+    
+    if (result.success) {
+      console.log('Login successful:', result.user);
       
-      const result = await userStore.login(formData.email, formData.password);
-      
-      if (result.success) {
-        console.log('Login successful:', result.user);
-        
-        // Rediriger selon le rôle de l'utilisateur
-        const userRole = result.user.role;
-        switch (userRole) {
-          case 'admin':
-            goto('/admin');
-            break;
-          case 'startup':
-            goto('/');
-            break;
-          case 'investor':
-            goto('/');
-            break;
-          default:
-            goto('/');
-        }
-      } else {
-        errors.submit = result.error || 'Email ou mot de passe incorrect.';
-        console.error('Login failed:', result.error);
+      // Rediriger selon le rôle de l'utilisateur
+      const userRole = result.user.role;
+      switch (userRole) {
+        case 'admin':
+          goto('/admin');
+          break;
+        case 'startup':
+          goto('/');
+          break;
+        case 'investor':
+          goto('/');
+          break;
+        default:
+          goto('/');
       }
-    } catch (error) {
-      console.error('Erreur lors de la connexion:', error);
-      errors.submit = 'Une erreur est survenue. Veuillez réessayer.';
-    } finally {
-      isSubmitting = false;
+    } else {
+      errors.submit = result.error || 'Email ou mot de passe incorrect.';
+      console.error('Login failed:', result.error);
     }
+  } catch (error) {
+    console.error('Erreur lors de la connexion:', error);
+    errors.submit = 'Une erreur est survenue. Veuillez réessayer.';
+  } finally {
+    isSubmitting = false;
   }
+}
 
   function handleKeyPress(event) {
     if (event.key === 'Enter') {

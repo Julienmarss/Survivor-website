@@ -3,6 +3,7 @@
     import { userStore } from '../../lib/stores/userStore.js';
     import { goto } from '$app/navigation';
     import Header from '../../lib/components/Header.svelte';
+    import authApi from '../../lib/services/authApi.js';
     import Footer from '../../lib/components/Footer.svelte';
     import LoadingSpinner from '../../lib/components/LoadingSpinner.svelte';
 
@@ -25,7 +26,7 @@
     let errors = {};
     let successMessage = '';
 
-    // Options pour les select
+    // Options pour les select (identique à avant)
     const sectors = [
         'FinTech', 'HealthTech', 'EdTech', 'GreenTech', 'AgriTech', 'PropTech',
         'FoodTech', 'RetailTech', 'Mobility', 'Cybersécurité', 'Intelligence Artificielle',
@@ -77,7 +78,7 @@
             linkedin: user.linkedin || user.linkedinUrl || '',
             bio: user.bio || user.motivation || '',
             location: user.location || user.address || '',
-            website: user.website || user.website_url || '',
+            website: user.website || user.websiteUrl || user.website_url || '',
 
             // Spécifique aux startups
             companyName: user.companyName || user.company_name || '',
@@ -112,6 +113,7 @@
         };
     }
 
+    // Fonctions utilitaires (identiques à avant)
     function getUserInitials() {
         if (!user) return '';
         const firstName = user.firstName || user.first_name || user.name?.split(' ')[0] || '';
@@ -133,6 +135,7 @@
             case 'startup': return 'Startup';
             case 'investor': return 'Investisseur';
             case 'student': return 'Étudiant';
+            case 'user': return 'Utilisateur';
             default: return 'Utilisateur';
         }
     }
@@ -143,6 +146,7 @@
             case 'startup': return 'bg-[#c174f2]';
             case 'investor': return 'bg-green-500';
             case 'student': return 'bg-blue-500';
+            case 'user': return 'bg-blue-500';
             default: return 'bg-gray-500';
         }
     }
@@ -169,40 +173,36 @@
         successMessage = '';
     }
 
+    // FONCTION MODIFIÉE: saveProfile avec authApi
     async function saveProfile() {
         try {
             isLoading = true;
             errors = {};
 
             // Validation basique
-            if (!editData.firstName.trim()) {
+            if (!editData.firstName?.trim()) {
                 errors.firstName = 'Le prénom est obligatoire';
                 return;
             }
-            if (!editData.lastName.trim()) {
+            if (!editData.lastName?.trim()) {
                 errors.lastName = 'Le nom est obligatoire';
                 return;
             }
-            if (!editData.email.trim()) {
+            if (!editData.email?.trim()) {
                 errors.email = 'L\'email est obligatoire';
                 return;
             }
 
-            // Appel API pour mettre à jour le profil
-            const response = await fetch(`${API_BASE}/users/${user.id}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                },
-                body: JSON.stringify(editData)
-            });
+            console.log('Données à envoyer:', editData);
 
-            const data = await response.json();
+            // Utiliser authApi au lieu de api
+            const response = await authApi.updateProfile(user.id, editData);
 
-            if (data.success) {
-                // Mettre à jour le store utilisateur
-                await userStore.updateUserData(data.user);
+            console.log('Réponse de l\'API:', response);
+
+            if (response.success) {
+                // Mettre à jour le store utilisateur avec les nouvelles données
+                userStore.set(response.data.user);
                 
                 isEditing = false;
                 successMessage = 'Profil mis à jour avec succès !';
@@ -211,16 +211,17 @@
                     successMessage = '';
                 }, 5000);
             } else {
-                errors.submit = data.message || 'Erreur lors de la mise à jour';
+                errors.submit = response.message || 'Erreur lors de la mise à jour';
             }
         } catch (error) {
             console.error('Erreur mise à jour profil:', error);
-            errors.submit = 'Une erreur est survenue lors de la mise à jour';
+            errors.submit = error.message || 'Une erreur est survenue lors de la mise à jour';
         } finally {
             isLoading = false;
         }
     }
 
+    // FONCTION MODIFIÉE: changePassword avec authApi
     async function changePassword() {
         try {
             isLoading = true;
@@ -244,22 +245,13 @@
                 return;
             }
 
-            // Appel API
-            const response = await fetch(`${API_BASE}/users/${user.id}/change-password`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                },
-                body: JSON.stringify({
-                    currentPassword: passwordData.currentPassword,
-                    newPassword: passwordData.newPassword
-                })
+            // Utiliser authApi au lieu de api
+            const response = await authApi.changePassword(user.id, {
+                currentPassword: passwordData.currentPassword,
+                newPassword: passwordData.newPassword
             });
 
-            const data = await response.json();
-
-            if (data.success) {
+            if (response.success) {
                 showPasswordModal = false;
                 passwordData = { currentPassword: '', newPassword: '', confirmPassword: '' };
                 successMessage = 'Mot de passe modifié avec succès !';
@@ -268,16 +260,17 @@
                     successMessage = '';
                 }, 5000);
             } else {
-                errors.passwordSubmit = data.message || 'Erreur lors du changement de mot de passe';
+                errors.passwordSubmit = response.message || 'Erreur lors du changement de mot de passe';
             }
         } catch (error) {
             console.error('Erreur changement mot de passe:', error);
-            errors.passwordSubmit = 'Une erreur est survenue';
+            errors.passwordSubmit = error.message || 'Une erreur est survenue';
         } finally {
             isLoading = false;
         }
     }
 
+    // FONCTION MODIFIÉE: uploadAvatar avec authApi
     async function uploadAvatar(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -297,38 +290,33 @@
             uploadingAvatar = true;
             errors.avatar = '';
 
-            const formData = new FormData();
-            formData.append('avatar', file);
+            // Utiliser authApi au lieu de api
+            const response = await authApi.uploadAvatar(user.id, file);
 
-            const response = await fetch(`${API_BASE}/users/${user.id}/avatar`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                },
-                body: formData
-            });
-
-            const data = await response.json();
-
-            if (data.success) {
-                await userStore.updateUserData({ ...user, avatar: data.avatarUrl });
+            if (response.success) {
+                // Mettre à jour le store utilisateur avec la nouvelle photo
+                userStore.set(response.data.user);
                 successMessage = 'Photo de profil mise à jour !';
                 
                 setTimeout(() => {
                     successMessage = '';
                 }, 5000);
             } else {
-                errors.avatar = data.message || 'Erreur lors de l\'upload';
+                errors.avatar = response.message || 'Erreur lors de l\'upload';
             }
         } catch (error) {
             console.error('Erreur upload avatar:', error);
-            errors.avatar = 'Erreur lors de l\'upload de l\'image';
+            errors.avatar = error.message || 'Erreur lors de l\'upload de l\'image';
         } finally {
             uploadingAvatar = false;
         }
     }
 
     function handleSectorChange(sector, isChecked) {
+        if (!Array.isArray(editData.preferredSectors)) {
+            editData.preferredSectors = [];
+        }
+        
         if (isChecked) {
             if (!editData.preferredSectors.includes(sector)) {
                 editData.preferredSectors = [...editData.preferredSectors, sector];
@@ -339,6 +327,10 @@
     }
 
     function handleInterestChange(interest, isChecked) {
+        if (!Array.isArray(editData.interests)) {
+            editData.interests = [];
+        }
+        
         if (isChecked) {
             if (!editData.interests.includes(interest)) {
                 editData.interests = [...editData.interests, interest];

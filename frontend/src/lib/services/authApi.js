@@ -21,40 +21,49 @@ class AuthApiService {
         }
 
         try {
+            console.log(`🔄 API Request: ${options.method || 'GET'} ${url}`);
+            console.log('📤 Request data:', options.body);
+            
             const response = await fetch(url, config);
+            
+            console.log(`📥 Response status: ${response.status}`);
+            console.log('📥 Response headers:', Object.fromEntries(response.headers.entries()));
+            
+            // Vérifier le content-type
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                console.error('❌ Response is not JSON:', contentType);
+                const textResponse = await response.text();
+                console.error('❌ Raw response:', textResponse);
+                throw new Error(`Server returned non-JSON response: ${textResponse.substring(0, 100)}...`);
+            }
+
             const data = await response.json();
+            console.log('📥 Response data:', data);
 
             if (!response.ok) {
-                throw new Error(data.message || `HTTP error! status: ${response.status}`);
+                const errorMessage = data.message || data.error || `HTTP error! status: ${response.status}`;
+                console.error('❌ API Error:', errorMessage);
+                throw new Error(errorMessage);
             }
 
             return data;
         } catch (error) {
-            console.error(`API request failed for ${endpoint}:`, error);
+            console.error(`❌ API request failed for ${endpoint}:`, error);
+            
+            // Si c'est une erreur de parsing JSON, donnons plus d'infos
+            if (error.message.includes('Unexpected token')) {
+                console.error('❌ JSON Parsing Error - Server likely returned HTML or plain text instead of JSON');
+            }
+            
             throw error;
         }
     }
 
-    async registerStudent(studentData) {
-        const mappedData = {
-            email: studentData.email,
-            password: studentData.password,
-            firstName: studentData.firstName,
-            lastName: studentData.lastName,
-            age: 20,
-            gender: 'prefer_not_to_say',
-            
-            school: studentData.school,
-            level: studentData.level,
-            field: studentData.field,
-            linkedin: studentData.linkedin,
-            motivation: studentData.motivation,
-            interests: studentData.interests || [],
-        };
-
-        const response = await this.request('/auth/register/user', {
+    async login(credentials) {
+        const response = await this.request('/auth/login', {
             method: 'POST',
-            body: JSON.stringify(mappedData),
+            body: JSON.stringify(credentials),
         });
         
         if (response.success && response.data.accessToken) {
@@ -65,6 +74,8 @@ class AuthApiService {
     }
 
     async registerStartup(startupData) {
+        console.log('🚀 Startup registration for:', startupData.email);
+        
         const mappedData = {
             email: startupData.email,
             password: startupData.password,
@@ -83,6 +94,7 @@ class AuthApiService {
             needs: startupData.fundingNeeds,
             legalStatus: 'SAS',
             address: '',
+            // Champs optionnels
             coFounders: startupData.coFounders,
             fundingNeeds: startupData.fundingNeeds,
             currentFunding: startupData.currentFunding,
@@ -91,12 +103,47 @@ class AuthApiService {
             why: startupData.why,
         };
 
+        console.log('📤 Mapped startup data:', mappedData);
+
         const response = await this.request('/auth/register/startup', {
             method: 'POST',
             body: JSON.stringify(mappedData),
         });
         
-        if (response.success && response.data.accessToken) {
+        if (response.success && response.data && response.data.accessToken) {
+            this.setToken(response.data.accessToken);
+        }
+        
+        return response;
+    }
+
+    async registerStudent(studentData) {
+        console.log('🎓 Student registration for:', studentData.email);
+        
+        const mappedData = {
+            email: studentData.email,
+            password: studentData.password,
+            firstName: studentData.firstName,
+            lastName: studentData.lastName,
+            age: 20,
+            gender: 'prefer_not_to_say',
+            
+            school: studentData.school,
+            level: studentData.level,
+            field: studentData.field,
+            linkedin: studentData.linkedin,
+            motivation: studentData.motivation,
+            interests: studentData.interests || [],
+        };
+
+        console.log('📤 Mapped student data:', mappedData);
+
+        const response = await this.request('/auth/register/user', {
+            method: 'POST',
+            body: JSON.stringify(mappedData),
+        });
+        
+        if (response.success && response.data && response.data.accessToken) {
             this.setToken(response.data.accessToken);
         }
         
@@ -104,6 +151,8 @@ class AuthApiService {
     }
 
     async registerInvestor(investorData) {
+        console.log('💰 Investor registration for:', investorData.email);
+        
         const mappedData = {
             email: investorData.email,
             password: investorData.password,
@@ -132,38 +181,14 @@ class AuthApiService {
             motivation: investorData.motivation,
         };
 
+        console.log('📤 Mapped investor data:', mappedData);
+
         const response = await this.request('/auth/register/investor', {
             method: 'POST',
             body: JSON.stringify(mappedData),
         });
         
-        if (response.success && response.data.accessToken) {
-            this.setToken(response.data.accessToken);
-        }
-        
-        return response;
-    }
-
-    async registerUser(userData) {
-        const response = await this.request('/auth/register/user', {
-            method: 'POST',
-            body: JSON.stringify(userData),
-        });
-        
-        if (response.success && response.data.accessToken) {
-            this.setToken(response.data.accessToken);
-        }
-        
-        return response;
-    }
-
-    async login(credentials) {
-        const response = await this.request('/auth/login', {
-            method: 'POST',
-            body: JSON.stringify(credentials),
-        });
-        
-        if (response.success && response.data.accessToken) {
+        if (response.success && response.data && response.data.accessToken) {
             this.setToken(response.data.accessToken);
         }
         
@@ -195,17 +220,10 @@ class AuthApiService {
         return response;
     }
 
-    async updateProfile(profileData) {
-        const response = await this.request('/auth/profile', {
-            method: 'PUT',
-            body: JSON.stringify(profileData),
-        });
-        return response;
-    }
-
     setToken(token) {
         if (typeof window !== 'undefined') {
             localStorage.setItem('jeb_auth_token', token);
+            console.log('💾 Token saved to localStorage');
         }
     }
 
@@ -219,6 +237,7 @@ class AuthApiService {
     removeToken() {
         if (typeof window !== 'undefined') {
             localStorage.removeItem('jeb_auth_token');
+            console.log('🗑️ Token removed from localStorage');
         }
     }
 

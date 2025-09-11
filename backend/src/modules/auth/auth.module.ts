@@ -8,11 +8,13 @@ import { UserRepository } from './repositories/user.repository';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { StartupsModule } from '../startups/startups.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
     ConfigModule,
     forwardRef(() => StartupsModule),
+    AdminModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
