@@ -6,8 +6,8 @@
     import Footer from '$lib/components/Footer.svelte';
     import AdminOverview from './components/AdminOverview.svelte';
     import AdminUsers from './components/AdminUsers.svelte';
-/*     import AdminStartups from './components/AdminStartups.svelte';
-    import AdminEvents from './components/AdminEvents.svelte';
+    import AdminStartups from './components/AdminStartups.svelte';
+    /* import AdminEvents from './components/AdminEvents.svelte';
     import AdminNews from './components/AdminNews.svelte';
     import AdminAnalytics from './components/AdminAnalytics.svelte';
     import AdminSettings from './components/AdminSettings.svelte'; */
@@ -31,8 +31,8 @@
     const sidebarItems = [
         { id: 'overview', label: 'Vue d\'ensemble', icon: '📊', component: AdminOverview },
         { id: 'users', label: 'Utilisateurs', icon: '👥', component: AdminUsers },
-/*         { id: 'startups', label: 'Startups', icon: '🏢', component: AdminStartups },
-        { id: 'events', label: 'Événements', icon: '📅', component: AdminEvents },
+        { id: 'startups', label: 'Startups', icon: '🏢', component: AdminStartups },
+        /* { id: 'events', label: 'Événements', icon: '📅', component: AdminEvents },
         { id: 'news', label: 'Actualités', icon: '📰', component: AdminNews },
         { id: 'analytics', label: 'Analytics', icon: '📈', component: AdminAnalytics },
         { id: 'settings', label: 'Paramètres', icon: '⚙️', component: AdminSettings } */
