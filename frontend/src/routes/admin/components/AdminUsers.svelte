@@ -4,6 +4,7 @@
     import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
     import UserModal from '../modals/UserModal.svelte';
     import BulkActionsPanel from '../panels/BulkActionsPanel.svelte';
+    import authApi from '$lib/services/authApi.js'; // Import par défaut
     
     const dispatch = createEventDispatcher();
     
@@ -26,136 +27,101 @@
         totalPages: 0
     };
 
-    const API_BASE = import.meta.env.PUBLIC_APIURL || 'http://localhost:3000/api'; // ← Ajouté /api
-
     async function loadUsers(page = 1) {
         try {
             loading = true;
             error = null;
 
-            // Debug détaillé
-            console.log('=== DEBUG LOAD USERS ===');
-            console.log('1. User object:', user);
-            console.log('2. User token:', user?.token);
-            console.log('3. API_BASE:', API_BASE);
+            console.log('=== CHARGEMENT UTILISATEURS ===');
+            console.log('1. User reçu:', user?.email);
+            console.log('2. Token disponible:', !!authApi.getToken());
 
-            // Si pas d'utilisateur, essayer de le récupérer depuis localStorage
-            if (!user || !user.token) {
-                console.log('4. No user/token, trying localStorage...');
-                const token = localStorage.getItem('auth_token');
-                const userData = localStorage.getItem('user_data');
-                
-                if (token && userData) {
-                    try {
-                        const parsedUser = JSON.parse(userData);
-                        parsedUser.token = token;
-                        user = parsedUser; // Mettre à jour la variable user
-                        console.log('5. User loaded from localStorage:', { email: user.email, hasToken: !!user.token });
-                    } catch (parseError) {
-                        console.error('6. Error parsing user data:', parseError);
-                        throw new Error('Impossible de charger les données utilisateur');
-                    }
+            // Vérifier l'authentification
+            if (!authApi.isAuthenticated()) {
+                throw new Error('Non authentifié - veuillez vous reconnecter');
+            }
+
+            // Si pas d'utilisateur, le récupérer
+            if (!user) {
+                console.log('3. Récupération de l\'utilisateur actuel...');
+                const currentUserResponse = await authApi.getCurrentUser();
+                if (currentUserResponse.success) {
+                    user = currentUserResponse.data.user;
+                    console.log('4. Utilisateur récupéré:', user.email);
                 } else {
-                    throw new Error('Pas de token d\'authentification disponible - veuillez vous reconnecter');
+                    throw new Error('Impossible de récupérer l\'utilisateur');
                 }
             }
 
-            // Test simple d'abord
-            console.log('7. Testing simple endpoint...');
-            try {
-                const testResponse = await fetch(`${API_BASE}/admin/users/test-no-auth`);
-                console.log('8. Test response status:', testResponse.status);
-                const testData = await testResponse.json();
-                console.log('9. Test response data:', testData);
-            } catch (testError) {
-                console.log('10. Test endpoint failed:', testError);
+            // Vérifier les permissions admin
+            if (!isAdmin(user)) {
+                throw new Error('Permissions administrateur requises');
             }
 
-            const params = new URLSearchParams({
-                page: page.toString(),
-                limit: pagination.limit.toString()
-            });
+            // Préparer les paramètres
+            const params = {
+                page,
+                limit: pagination.limit
+            };
 
             if (searchTerm.trim()) {
-                params.append('search', searchTerm.trim());
+                params.search = searchTerm.trim();
             }
 
             if (selectedFilter !== 'all') {
-                params.append('role', selectedFilter);
+                params.role = selectedFilter;
             }
 
-            const url = `${API_BASE}/admin/users?${params}`;
-            console.log('11. Full URL:', url);
-            console.log('12. Headers:', {
-                'Authorization': `Bearer ${user.token}`,
-                'Content-Type': 'application/json'
-            });
+            console.log('5. Paramètres de requête:', params);
 
-            const response = await fetch(url, {
-                headers: {
-                    'Authorization': `Bearer ${user.token}`,
-                    'Content-Type': 'application/json'
-                }
-            });
+            // Appel API
+            const response = await authApi.getAllUsers(params);
+            console.log('6. Réponse API:', response);
 
-            console.log('13. Response status:', response.status);
-            console.log('14. Response headers:', response.headers);
-
-            const data = await response.json();
-            console.log('15. Response data:', data);
-
-            if (data.success) {
-                users = data.data.users || [];
-                pagination = data.data.pagination || {
+            if (response.success) {
+                users = response.data.users || [];
+                pagination = response.data.pagination || {
                     page: 1,
                     limit: 20,
                     total: 0,
                     totalPages: 0
                 };
-                console.log('16. Users loaded successfully:', users.length);
-                
-                // Supprimer les données de test si on a des vraies données
-                if (users.length > 0) {
-                    console.log('✅ Real data loaded, removing fallback');
-                }
+                console.log('7. ✅ Utilisateurs chargés:', users.length);
             } else {
-                throw new Error(data.message || 'Erreur lors du chargement');
+                throw new Error(response.message || 'Erreur lors du chargement');
             }
+
         } catch (err) {
-            console.error('=== ERROR IN LOAD USERS ===');
-            console.error('Error object:', err);
-            console.error('Error message:', err.message);
+            console.error('❌ ERREUR CHARGEMENT UTILISATEURS:', err);
+            error = err.message;
             
-            error = `Erreur API: ${err.message}`;
-            
-            // Données de test SEULEMENT en cas d'erreur
-            console.log('❌ Falling back to test data...');
-            users = [
-                {
-                    id: 'test-1',
-                    email: 'test@example.com',
-                    firstName: 'John',
-                    lastName: 'Doe',
-                    role: 'user',
-                    isActive: true,
-                    createdAt: new Date().toISOString()
-                },
-                {
-                    id: 'test-2',
-                    email: 'startup@example.com',
-                    firstName: 'Jane',
-                    lastName: 'Smith',
-                    role: 'startup',
-                    isActive: true,
-                    createdAt: new Date().toISOString()
-                }
-            ];
-            pagination = {
-                page: 1,
-                limit: 20,
-                total: 2,
-                totalPages: 1
-            };
+            // Données de fallback uniquement en cas d'erreur
+            if (err.message.includes('authentifié') || err.message.includes('permission')) {
+                users = [];
+            } else {
+                console.log('🔄 Utilisation de données de test...');
+                users = [
+                    {
+                        id: 'test-1',
+                        email: 'test@example.com',
+                        firstName: 'Test',
+                        lastName: 'User',
+                        role: 'user',
+                        isActive: true,
+                        createdAt: new Date().toISOString()
+                    },
+                    {
+                        id: 'test-2',
+                        email: 'startup@example.com',
+                        firstName: 'Test',
+                        lastName: 'Startup',
+                        role: 'startup',
+                        isActive: true,
+                        createdAt: new Date().toISOString()
+                    }
+                ];
+                pagination = { page: 1, limit: 20, total: 2, totalPages: 1 };
+            }
         } finally {
             loading = false;
         }
@@ -168,25 +134,17 @@
 
         try {
             loading = true;
-            const response = await fetch(`${API_BASE}/admin/users/${userId}`, {
-                method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${user?.token}`,
-                    'Content-Type': 'application/json'
-                }
-            });
+            const response = await authApi.deleteUser(userId);
 
-            const data = await response.json();
-
-            if (data.success) {
+            if (response.success) {
                 await loadUsers(pagination.page);
                 showSuccessMessage('Utilisateur supprimé avec succès');
             } else {
-                throw new Error(data.message || 'Erreur lors de la suppression');
+                throw new Error(response.message || 'Erreur lors de la suppression');
             }
         } catch (err) {
             console.error('Erreur suppression:', err);
-            error = 'Impossible de supprimer l\'utilisateur';
+            error = 'Impossible de supprimer l\'utilisateur: ' + err.message;
         } finally {
             loading = false;
         }
@@ -195,39 +153,39 @@
     async function exportUsers() {
         try {
             loading = true;
-            const token = authApi.getToken(); // Utiliser authApi
             
-            const params = new URLSearchParams();
-            
+            const filters = {};
             if (selectedFilter !== 'all') {
-                params.append('role', selectedFilter);
+                filters.role = selectedFilter;
             }
             if (searchTerm.trim()) {
-                params.append('search', searchTerm.trim());
+                filters.search = searchTerm.trim();
             }
 
-            const response = await fetch(`${API_BASE}/admin/users/export/csv?${params}`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
+            const response = await authApi.exportUsersCSV(filters);
 
-            if (response.ok) {
-                const blob = await response.blob();
-                downloadFile(blob, `users-export-${new Date().toISOString().split('T')[0]}.csv`);
+            if (response.success) {
+                downloadFile(response.data, `users-export-${new Date().toISOString().split('T')[0]}.csv`);
                 showSuccessMessage('Export réussi !');
             } else {
-                throw new Error('Erreur lors de l\'export');
+                throw new Error(response.message || 'Erreur lors de l\'export');
             }
         } catch (err) {
             console.error('Erreur export:', err);
-            error = 'Erreur lors de l\'export des données';
+            error = 'Erreur lors de l\'export: ' + err.message;
         } finally {
             loading = false;
         }
     }
 
-    function downloadFile(blob, filename) {
+    function downloadFile(data, filename) {
+        let blob;
+        if (typeof data === 'string') {
+            blob = new Blob([data], { type: 'text/csv;charset=utf-8;' });
+        } else {
+            blob = data;
+        }
+
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -248,8 +206,9 @@
     }
 
     function openEditModal(userData) {
-        editingUser = userData;
-        showUserModal = true;
+    console.log("🟣 Bouton modifier cliqué :", userData); // ← Ajoute ça
+    editingUser = userData;
+    showUserModal = true;
     }
 
     function closeUserModal() {
@@ -297,34 +256,34 @@
 
     function getRoleColor(role) {
         switch (role) {
-            case 'startup':
-                return 'bg-purple-100 text-purple-800';
-            case 'investor':
-                return 'bg-green-100 text-green-800';
-            case 'user':
-                return 'bg-blue-100 text-blue-800';
-            case 'admin':
-                return 'bg-red-100 text-red-800';
-            default:
-                return 'bg-gray-100 text-gray-800';
+            case 'startup': return 'bg-purple-100 text-purple-800';
+            case 'investor': return 'bg-green-100 text-green-800';
+            case 'user': return 'bg-blue-100 text-blue-800';
+            case 'admin': return 'bg-red-100 text-red-800';
+            default: return 'bg-gray-100 text-gray-800';
+        }
+    }
+
+    function getRoleLabel(role) {
+        switch (role) {
+            case 'startup': return 'Startup';
+            case 'investor': return 'Investisseur';
+            case 'user': return 'Étudiant';
+            case 'admin': return 'Admin';
+            default: return role;
         }
     }
 
     function getStatusColor(status) {
-        switch (status) {
-            case 'active':
-                return 'bg-green-100 text-green-800';
-            case 'pending':
-                return 'bg-yellow-100 text-yellow-800';
-            case 'inactive':
-                return 'bg-red-100 text-red-800';
-            default:
-                return 'bg-gray-100 text-gray-800';
-        }
+        return status ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
     }
 
     function changePage(newPage) {
         loadUsers(newPage);
+    }
+
+    function isAdmin(user) {
+        return user?.role === 'admin' || user?.isAdmin === true;
     }
 
     let searchTimeout;
@@ -341,12 +300,33 @@
         loadUsers(1);
     }
 
-    onMount(() => {
-        loadUsers();
+    // Test de connexion API
+    async function testConnection() {
+        try {
+            console.log('🔧 Test de connexion admin...');
+            const response = await authApi.testAdminConnection();
+            console.log('✅ Test admin réussi:', response);
+        } catch (testError) {
+            console.log('⚠️ Test admin échoué:', testError);
+            
+            // Test fallback
+            try {
+                const noAuthResponse = await authApi.testNoAuthEndpoint();
+                console.log('✅ Test sans auth réussi:', noAuthResponse);
+            } catch (noAuthError) {
+                console.error('❌ Tous les tests ont échoué:', noAuthError);
+            }
+        }
+    }
+
+    onMount(async () => {
+        await testConnection();
+        await loadUsers();
     });
 </script>
 
 <div class="space-y-6">
+    <!-- Header -->
     <div class="flex items-center justify-between">
         <h1 class="text-3xl font-bold text-gray-900 font-['Montserrat']">Gestion des utilisateurs</h1>
         <div class="flex gap-2">
@@ -369,7 +349,30 @@
         </div>
     </div>
 
-    <!-- Filters -->
+    <!-- Message d'erreur -->
+    {#if error}
+        <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm text-red-800">{error}</p>
+                </div>
+                <div class="ml-auto pl-3">
+                    <button
+                        on:click={() => loadUsers(pagination.page)}
+                        class="bg-red-100 text-red-800 px-3 py-1 rounded text-sm hover:bg-red-200 transition-colors">
+                        Réessayer
+                    </button>
+                </div>
+            </div>
+        </div>
+    {/if}
+
+    <!-- Filtres -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
         <div class="flex flex-col md:flex-row gap-4">
             <div class="flex-1">
@@ -409,7 +412,7 @@
         </div>
     </div>
 
-    <!-- Bulk Actions Panel -->
+    <!-- Panel d'actions en lot -->
     {#if showBulkPanel}
         <BulkActionsPanel 
             {selectedUsers} 
@@ -419,7 +422,7 @@
         />
     {/if}
 
-    <!-- Users Table -->
+    <!-- Tableau des utilisateurs -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         {#if selectedUsers.length > 0}
             <div class="bg-purple-50 border-b border-purple-200 px-6 py-3">
@@ -465,7 +468,7 @@
                     {:else if users.length === 0}
                         <tr>
                             <td colspan="6" class="px-6 py-8 text-center text-gray-500">
-                                Aucun utilisateur trouvé
+                                {error ? 'Erreur de chargement' : 'Aucun utilisateur trouvé'}
                             </td>
                         </tr>
                     {:else}
@@ -494,11 +497,11 @@
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {getRoleColor(userData.role)}">
-                                        {userData.role === 'startup' ? 'Startup' : userData.role === 'investor' ? 'Investisseur' : userData.role === 'user' ? 'Étudiant' : userData.role === 'admin' ? 'Admin' : userData.role}
+                                        {getRoleLabel(userData.role)}
                                     </span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {getStatusColor(userData.isActive !== false ? 'active' : 'inactive')}">
+                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {getStatusColor(userData.isActive !== false)}">
                                         {userData.isActive !== false ? 'Actif' : 'Inactif'}
                                     </span>
                                 </td>
@@ -592,7 +595,7 @@
     </div>
 </div>
 
-<!-- User Modal -->
+<!-- Modal utilisateur -->
 {#if showUserModal}
     <UserModal 
         {user}

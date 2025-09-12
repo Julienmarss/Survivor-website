@@ -1,3 +1,5 @@
+// frontend/src/lib/services/authApi.js - Version corrigée
+
 const API_BASE_URL = `${import.meta.env.PUBLIC_APIURL || 'http://localhost:3000'}/api`;
 
 class AuthApiService {
@@ -22,6 +24,7 @@ class AuthApiService {
 
         try {
             console.log(`🔄 API Request: ${options.method || 'GET'} ${url}`);
+            console.log('📤 Request headers:', config.headers);
             console.log('📤 Request data:', options.body);
             
             const response = await fetch(url, config);
@@ -220,16 +223,183 @@ class AuthApiService {
         return response;
     }
 
+    // ===== NOUVELLES MÉTHODES ADMIN =====
+
+    // Profil utilisateur
+    async updateProfile(userId, updateData) {
+        const response = await this.request(`/auth/profile/${userId}`, {
+            method: 'PUT',
+            body: JSON.stringify(updateData),
+        });
+        return response;
+    }
+
+    async changePassword(userId, passwordData) {
+        const response = await this.request(`/auth/profile/${userId}/change-password`, {
+            method: 'POST',
+            body: JSON.stringify(passwordData),
+        });
+        return response;
+    }
+
+    async uploadAvatar(userId, file) {
+        // Pour l'instant, génération d'un avatar par défaut
+        const response = await this.request(`/auth/profile/${userId}/avatar`, {
+            method: 'POST',
+            body: JSON.stringify({}),
+        });
+        return response;
+    }
+
+    async getUserProfile(userId) {
+        const response = await this.request(`/auth/profile/${userId}`);
+        return response;
+    }
+
+    // ===== MÉTHODES ADMIN =====
+    
+    async getAllUsers(params = {}) {
+        const searchParams = new URLSearchParams();
+        
+        if (params.page) searchParams.append('page', params.page);
+        if (params.limit) searchParams.append('limit', params.limit);
+        if (params.search) searchParams.append('search', params.search);
+        if (params.role) searchParams.append('role', params.role);
+        if (params.sortBy) searchParams.append('sortBy', params.sortBy);
+        if (params.sortOrder) searchParams.append('sortOrder', params.sortOrder);
+
+        const response = await this.request(`/admin/users?${searchParams}`);
+        return response;
+    }
+
+    async getUserStats() {
+        const response = await this.request('/admin/users/stats');
+        return response;
+    }
+
+    async createUser(userData) {
+        const response = await this.request('/admin/users', {
+            method: 'POST',
+            body: JSON.stringify(userData),
+        });
+        return response;
+    }
+
+    async updateUser(userId, userData) {
+        const response = await this.request(`/admin/users/${userId}`, {
+            method: 'PUT',
+            body: JSON.stringify(userData),
+        });
+        return response;
+    }
+
+    async deleteUser(userId) {
+        const response = await this.request(`/admin/users/${userId}`, {
+            method: 'DELETE',
+        });
+        return response;
+    }
+
+    async updateUserRole(userId, role, reason = '') {
+        const response = await this.request(`/admin/users/${userId}/role`, {
+            method: 'PUT',
+            body: JSON.stringify({ role, reason }),
+        });
+        return response;
+    }
+
+    async resetUserPassword(userId, newPassword) {
+        const response = await this.request(`/admin/users/${userId}/password`, {
+            method: 'PUT',
+            body: JSON.stringify({ newPassword }),
+        });
+        return response;
+    }
+
+    async toggleUserStatus(userId, reason = '') {
+        const response = await this.request(`/admin/users/${userId}/toggle-status`, {
+            method: 'PUT',
+            body: JSON.stringify({ reason }),
+        });
+        return response;
+    }
+
+    async getUserActivity(userId, params = {}) {
+        const searchParams = new URLSearchParams();
+        if (params.page) searchParams.append('page', params.page);
+        if (params.limit) searchParams.append('limit', params.limit);
+
+        const response = await this.request(`/admin/users/${userId}/activity?${searchParams}`);
+        return response;
+    }
+
+    async sendNotificationToUser(userId, notification) {
+        const response = await this.request(`/admin/users/${userId}/send-notification`, {
+            method: 'POST',
+            body: JSON.stringify(notification),
+        });
+        return response;
+    }
+
+    async performBulkAction(userIds, action, params = {}) {
+        const response = await this.request('/admin/users/bulk-action', {
+            method: 'POST',
+            body: JSON.stringify({ userIds, action, params }),
+        });
+        return response;
+    }
+
+    async exportUsersCSV(filters = {}) {
+        const searchParams = new URLSearchParams();
+        if (filters.role) searchParams.append('role', filters.role);
+        if (filters.search) searchParams.append('search', filters.search);
+
+        const response = await this.request(`/admin/users/export/csv?${searchParams}`);
+        return response;
+    }
+
+    // ===== TEST ENDPOINTS =====
+    
+    async testAdminConnection() {
+        try {
+            const response = await this.request('/admin/users/debug/test');
+            return response;
+        } catch (error) {
+            console.error('Admin test failed:', error);
+            throw error;
+        }
+    }
+
+    async testNoAuthEndpoint() {
+        try {
+            const response = await fetch(`${this.baseURL}/admin/users/test-no-auth`);
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            console.error('No-auth test failed:', error);
+            throw error;
+        }
+    }
+
+    // ===== TOKEN MANAGEMENT =====
+
     setToken(token) {
         if (typeof window !== 'undefined') {
             localStorage.setItem('jeb_auth_token', token);
+            localStorage.setItem('auth_token', token); // Aussi pour compatibilité
             console.log('💾 Token saved to localStorage');
         }
     }
 
     getToken() {
         if (typeof window !== 'undefined') {
-            return localStorage.getItem('jeb_auth_token');
+            // Essayer d'abord avec la clé principale
+            let token = localStorage.getItem('jeb_auth_token');
+            if (!token) {
+                // Fallback sur l'ancienne clé
+                token = localStorage.getItem('auth_token');
+            }
+            return token;
         }
         return null;
     }
@@ -237,6 +407,8 @@ class AuthApiService {
     removeToken() {
         if (typeof window !== 'undefined') {
             localStorage.removeItem('jeb_auth_token');
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('user_data');
             console.log('🗑️ Token removed from localStorage');
         }
     }
